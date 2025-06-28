@@ -1,0 +1,126 @@
+// commands/patpat.js
+
+const { downloadMediaMessage } = require('@whiskeysockets/baileys');
+const fs = require('fs').promises; 
+const path = require('path'); 
+const { exec } = require('child_process');
+const crypto = require('crypto');
+
+// Novas dependências para geração de GIF no Node.js
+const { createCanvas, loadImage } = require('canvas');
+const GIFEncoder = require('gifencoder');
+// CORREÇÃO AQUI: Importando a função 'decode' de dentro da biblioteca
+const { decode } = require('gif-decode');
+
+
+// --- VARIÁVEIS DE CONTROLE PARA AJUSTE FÁCIL ---
+const finalSize = 256; // Tamanho final do GIF (ex: 256x256)
+const handScale = 0.8; // Fator de escala da mão (0.8 = 80% do tamanho do canvas)
+
+
+async function handlePatPatCommand(sock, msg, msgDetails) {
+    const { sender, pushName, commandText, messageType } = msgDetails;
+
+    let imageToProcess = null;
+    if (messageType === 'imageMessage' && commandText?.toLowerCase().includes('!patpat')) {
+        imageToProcess = msg;
+    } else if (commandText?.toLowerCase().includes('!patpat') && msg.message.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage) {
+        const quotedMsgContent = msg.message.extendedTextMessage.contextInfo.quotedMessage;
+        imageToProcess = { key: msg.message.extendedTextMessage.contextInfo.quotedMessage.key, message: quotedMsgContent };
+    }
+
+    if (!imageToProcess) {
+        if (commandText?.toLowerCase().includes('!patpat')) {
+            await sock.sendMessage(sender, { text: "Para usar o `!patpat`, envie o comando na legenda de uma imagem ou responda a uma imagem com `!patpat`." }, { quoted: msg });
+            return true; 
+        }
+        return false; 
+    }
+
+    console.log(`[PatPat] Usuário ${pushName} solicitou criação de meme pat-pat via Canvas.`);
+    
+    const patpatGifPath = path.join(__dirname, '..', 'assets', 'patpat.gif');
+    const tempDir = path.join(__dirname, '..', 'temp_memes');
+    await fs.mkdir(tempDir, { recursive: true });
+    
+    const randomId = crypto.randomBytes(8).toString('hex');
+    const outputPath = path.join(tempDir, `${randomId}_output.gif`);
+
+    try {
+        await sock.sendPresenceUpdate('composing', sender);
+        
+        // Carrega a imagem do usuário e o gif da mãozinha
+        const userImageBuffer = await downloadMediaMessage(imageToProcess, 'buffer', {}, { logger: undefined });
+        const handGifBuffer = await fs.readFile(patpatGifPath);
+
+        const userImage = await loadImage(userImageBuffer);
+        const handAnimation = decode(handGifBuffer); // Agora 'decode' é a função correta
+
+        // Configura o codificador de GIF
+        const encoder = new GIFEncoder(finalSize, finalSize);
+        const stream = fs.createWriteStream(outputPath);
+        encoder.createReadStream().pipe(stream);
+        encoder.start();
+        encoder.setRepeat(0); // 0 = loop infinito
+        encoder.setDelay(50); // Atraso entre frames em ms
+        encoder.setQuality(10); // Qualidade (1-20, onde 1 é melhor)
+
+        const canvas = createCanvas(finalSize, finalSize);
+        const ctx = canvas.getContext('2d');
+
+        const frameCount = handAnimation.frames.length;
+        const squishFactors = [0.95, 0.9, 0.85, 0.9, 0.95, 1, 1.05, 1.1, 1.05, 1];
+        
+        for (let i = 0; i < frameCount; i++) {
+            const squish = squishFactors[i % squishFactors.length];
+            const squishedHeight = finalSize * squish;
+            const yOffset = (finalSize - squishedHeight) / 2;
+
+            ctx.clearRect(0, 0, finalSize, finalSize);
+            
+            // 1. Desenha a imagem do usuário (o fundo) com o efeito de mola
+            ctx.drawImage(userImage, 0, yOffset, finalSize, squishedHeight);
+
+            // 2. Desenha o frame atual da mãozinha por cima
+            const handFrame = handAnimation.frames[i];
+            const handImageData = ctx.createImageData(handFrame.width, handFrame.height);
+            handImageData.data.set(handFrame.data);
+            
+            const handDrawWidth = finalSize * handScale;
+            const handDrawHeight = (handDrawWidth / handFrame.width) * handFrame.height;
+            const handX = (finalSize - handDrawWidth) / 2;
+            const handY = finalSize - handDrawHeight;
+
+            const handCanvas = createCanvas(handFrame.width, handFrame.height);
+            handCanvas.getContext('2d').putImageData(handImageData, 0, 0);
+            ctx.drawImage(handCanvas, handX, handY, handDrawWidth, handDrawHeight);
+
+            encoder.addFrame(ctx);
+        }
+
+        encoder.finish();
+        console.log(`[PatPat] GIF gerado com sucesso em: ${outputPath}`);
+
+        await new Promise(resolve => stream.on('finish', resolve));
+
+        const outputBuffer = await fs.readFile(outputPath);
+
+        await sock.sendMessage(sender, {
+            video: outputBuffer,
+            mimetype: 'image/gif', 
+            gifPlayback: true,
+            caption: "Pat-pat! ✨"
+        }, { quoted: msg });
+
+    } catch (err) {
+        console.error('[Erro ao gerar meme pat-pat com Canvas]:', err);
+        await sock.sendMessage(sender, { text: 'Tive um probleminha pra fazer o seu meme. 😕' }, { quoted: msg });
+    } finally {
+        await fs.unlink(outputPath).catch(() => {});
+        console.log('[PatPat] Arquivos temporários limpos.');
+    }
+    
+    return true;
+}
+
+module.exports = handlePatPatCommand;
