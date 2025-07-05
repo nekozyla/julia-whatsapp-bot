@@ -7,6 +7,8 @@ async function handleHelpCommand(sock, msg, msgDetails) {
     const helpText = `
 *Guia de Comandos da Julia* ✨
 
+Desenvolvida por: @nekozylajs
+
 Aqui está uma lista de tudo que eu posso fazer!
 
 *--- 🎨 Mídia e Criação ---*
@@ -32,6 +34,22 @@ Ex: \`!lembrete 31/12 Fogos na praia!\`
 *!lembretes*
 _Mostra os lembretes que estão agendados para este chat._
 Ex: \`!lembretes\`
+
+*--- 🎉 Diversão e Interação ---*
+
+*!top10 [assunto]*
+_Cria um ranking aleatório com 10 pessoas do grupo sobre um assunto._
+Ex: \`!top10 mais legais do grupo\`
+
+*!shipp [@pessoa1] [@pessoa2]*
+_Calcula a compatibilidade entre duas pessoas. Se marcar só uma, o 'ship' é com você!_
+Ex: \`!shipp @Amigo\` ou \`!shipp @Amigo1 @Amiga2\`
+
+*!gado [@pessoa]*
+_Mede o seu nível de 'gado' ou o de alguém que você marcar._
+Ex: \`!gado @Amigo\` ou apenas \`!gado\`
+
+
 
 *--- 🤖 Interação com a IA ---*
 
