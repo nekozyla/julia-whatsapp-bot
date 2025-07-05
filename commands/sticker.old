@@ -1,0 +1,100 @@
+// commands/sticker.js
+const { downloadMediaMessage, getContentType } = require('@whiskeysockets/baileys');
+const sharp = require('sharp');
+const path = require('path');
+const fsp = require('fs').promises; // Usaremos 'fsp' para 'fs.promises' para clareza
+const { exec } = require('child_process');
+const crypto = require('crypto');
+
+async function handleStickerCreationCommand(sock, msg, msgDetails) {
+    const { sender, pushName, commandText, messageType } = msgDetails;
+
+    // A lógica de detecção de comando e mídia permanece a mesma
+    if (!commandText?.toLowerCase().includes('!sticker')) {
+        return false;
+    }
+
+    let mediaToProcess = null;
+    let isAnimated = false;
+
+    if (messageType === 'imageMessage' || messageType === 'videoMessage') {
+        mediaToProcess = msg;
+        isAnimated = (messageType === 'videoMessage');
+    } else if (msg.message.extendedTextMessage?.contextInfo?.quotedMessage) {
+        const quotedMsgContent = msg.message.extendedTextMessage.contextInfo.quotedMessage;
+        const quotedMsgType = getContentType(quotedMsgContent);
+
+        if (quotedMsgType === 'imageMessage') {
+            mediaToProcess = { key: msg.message.extendedTextMessage.contextInfo.quotedMessage.key, message: quotedMsgContent };
+            isAnimated = false;
+        } else if (quotedMsgType === 'videoMessage') {
+            mediaToProcess = { key: msg.message.extendedTextMessage.contextInfo.quotedMessage.key, message: quotedMsgContent };
+            isAnimated = true;
+        }
+    }
+
+    if (!mediaToProcess) {
+        await sock.sendMessage(sender, { text: 'Para usar o `!sticker`, envie o comando na legenda de uma imagem/gif ou responda a um com `!sticker`.' }, { quoted: msg });
+        return true;
+    }
+    
+    console.log(`[Sticker] Usuário ${pushName} solicitou criação de sticker (${isAnimated ? 'Animado' : 'Estático'}).`);
+    
+    const tempDir = path.join(__dirname, '..', 'temp_stickers');
+    await fsp.mkdir(tempDir, { recursive: true });
+    const randomId = crypto.randomBytes(8).toString('hex');
+    const inputPath = path.join(tempDir, `${randomId}.mp4`);
+    const outputPath = path.join(tempDir, `${randomId}.webp`);
+
+    try {
+        await sock.sendPresenceUpdate('composing', sender);
+        const buffer = await downloadMediaMessage(mediaToProcess, 'buffer', {}, { logger: undefined });
+        
+        let stickerBuffer;
+
+        if (isAnimated) {
+            await fsp.writeFile(inputPath, buffer);
+            
+            // --- COMANDO FFMPEG CORRIGIDO E ROBUSTO ---
+            const ffmpegCommand = `ffmpeg -i "${inputPath}" -t 7 ` +
+                `-vf "scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:-1:-1:color=black@0,split[s0][s1];[s0]palettegen=reserve_transparent=1[p];[s1][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle" ` +
+                `-c:v libwebp -lossless 0 -q:v 80 -loop 0 -preset default -an "${outputPath}"`;
+
+            await new Promise((resolve, reject) => {
+                exec(ffmpegCommand, (error, stdout, stderr) => {
+                    if (error) {
+                        console.error('[FFmpeg Error]:', error);
+                        console.error('[FFmpeg Stderr]:', stderr);
+                        return reject(new Error('Falha ao converter o GIF para WebP com FFmpeg.'));
+                    }
+                    resolve(stdout);
+                });
+            });
+            stickerBuffer = await fsp.readFile(outputPath);
+            await fsp.unlink(inputPath); // Limpa o input temporário
+        } else {
+            // Lógica para stickers estáticos com Sharp (fundo transparente)
+            stickerBuffer = await sharp(buffer)
+                .resize(512, 512, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+                .webp({ quality: 90 })
+                .toBuffer();
+        }
+
+        if (!stickerBuffer || stickerBuffer.length === 0) {
+            console.error('[Sticker] O buffer da figurinha foi gerado vazio ou nulo.');
+            throw new Error('Ocorreu um erro ao processar a imagem e o resultado foi um arquivo vazio.');
+        }
+        
+        await sock.sendMessage(sender, { sticker: stickerBuffer }, { quoted: msg });
+
+    } catch (err) {
+        console.error('[Erro ao gerar figurinha com !sticker]:', err);
+        await sock.sendMessage(sender, { text: 'Tive um probleminha pra fazer essa figurinha 😕. A imagem ou GIF pode ser inválida ou estar em um formato não suportado.' }, { quoted: msg });
+    } finally {
+        await fsp.unlink(outputPath).catch(() => {}); // Tenta limpar o arquivo de saída
+    }
+    
+    return true; 
+}
+
+module.exports = handleStickerCreationCommand;

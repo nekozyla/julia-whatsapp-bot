@@ -55,7 +55,7 @@ async function handleContextualReply(sock, msg, chatSession, msgDetails) {
 
     if (quotedOriginalMessageType === 'imageMessage') {
         const cleanQuotedCaption = quotedText ? quotedText.replace(/\s+/g, ' ').trim().substring(0, 150) : "";
-        replyContextString = `(em resposta a uma IMAGEM enviada por ${quotedAuthorDescriptor}${cleanQuotedCaption ? ` com a legenda: "${cleanQuotedCaption}"` : ''})`;
+        replyContextString = `(em resposta a uma IMAGEM enviada por ${quotedAuthorDescriptor}${cleanQuotedCaption ? ` com a legenda: "${cleanQuotedCaption}"` : ''}) se a legenda tiver algo como um pedido para fazer figurinha, diga apenas "use !help para ver todos os comandos`;
         specificInstructionForJulia = `Julia, minha mensagem é um comentário sobre a IMAGEM anterior de ${quotedAuthorDescriptor}. Por favor, responda ao meu comentário sobre essa imagem.`;
     } else if (quotedText?.trim()) {
         const cleanQuotedText = quotedText.replace(/\s+/g, ' ').trim().substring(0, 200); 

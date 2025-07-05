@@ -9,6 +9,7 @@
     "gif-frames": "^1.0.1",
     "jimp": "^0.16.13",
     "node-fetch": "^2.7.0",
+    "node-webpmux": "^3.2.1",
     "pet-pet-gif": "^1.0.9",
     "pino": "^9.7.0",
     "qrcode-terminal": "^0.12.0",
