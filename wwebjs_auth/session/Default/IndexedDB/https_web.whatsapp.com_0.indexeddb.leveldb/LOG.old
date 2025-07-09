@@ -1,0 +1,5 @@
+2025/07/09-13:20:50.960 bde5 Recovering log #36
+2025/07/09-13:20:51.254 bde5 Level-0 table #40: started
+2025/07/09-13:20:51.351 bde5 Level-0 table #40: 71117 bytes OK
+2025/07/09-13:20:51.366 bde5 Delete type=3 #2
+2025/07/09-13:20:51.366 bde5 Delete type=0 #36

@@ -13,11 +13,8 @@ const conversationalHandlers = require('./messageHandlers');
 const scheduler = require('./scheduler');
 const { getTextFromMsg } = require('./utils');
 const settingsManager = require('./groupSettingsManager');
+const contactManager = require('./contactManager');
 
-/**
- * Carrega dinamicamente todos os arquivos de comando da pasta /commands
- * e os mapeia para um objeto. O nome do comando é derivado do nome do arquivo.
- */
 function loadCommands() {
     const commandMap = {};
     const commandDir = path.join(__dirname, 'commands');
@@ -28,9 +25,10 @@ function loadCommands() {
 
         for (const file of commandFiles) {
             try {
-                const commandName = `!${path.basename(file, '.js')}`; // Ex: 'sticker.js' -> '!sticker'
+                const commandName = `!${path.basename(file, '.js')}`;
                 const handler = require(path.join(commandDir, file));
 
+                // Verificação de segurança: garante que o que foi carregado é de fato uma função
                 if (typeof handler === 'function') {
                     commandMap[commandName] = handler;
                     console.log(`[Comandos] Comando carregado: ${commandName}`);
@@ -48,13 +46,12 @@ function loadCommands() {
     return commandMap;
 }
 
-// Variável para controlar o intervalo do scheduler
 let schedulerIntervalId = null; 
 
 async function startJulia() {
-    // Carrega os comandos e as sessões na inicialização
     const commandMap = loadCommands();
     await settingsManager.loadSettings();
+    await contactManager.loadContacts();
     await sessionManager.loadAllPersistedSessions();
     
     const { state, saveCreds } = await useMultiFileAuthState(config.AUTH_FILE_PATH);
@@ -66,85 +63,103 @@ async function startJulia() {
         const msg = messages[0];
         if (!msg.message || msg.key.fromMe) return;
 
-        const senderJid = msg.key.remoteJid; 
+        const senderJid = msg.key.remoteJid;
+        await contactManager.addContact(senderJid);
+        
         const isGroup = senderJid.endsWith('@g.us');
         const pushName = msg.pushName || 'alguém';
         const messageType = getContentType(msg.message);
+        const textContent = getTextFromMsg(msg.message);
         
-        // --- VERIFICAÇÃO DE MODO DE TRANSCRIÇÃO (tem prioridade sobre tudo) ---
-        if (messageType === 'audioMessage') {
-            const transcriptionMode = settingsManager.getSetting(senderJid, 'transcriptionMode', 'off');
-            if (transcriptionMode === 'on') {
-                console.log(`[Modo Transcrição] Ativado para ${senderJid}. Transcrevendo áudio automaticamente...`);
-                // A função 'transcribeAudio' está atrelada ao módulo do comando para organização
-                const commandTranscrever = require('./commands/transcrever');
-                await commandTranscrever.transcribeAudio(sock, msg, msg);
-                return; 
+        // --- LÓGICA DE DETECÇÃO DE COMANDOS (com tolerância a espaços) ---
+        let commandToRun = null;
+        if (textContent?.startsWith('!')) {
+            const spacelessInput = textContent.substring(0, 30).replace(/\s+/g, '').toLowerCase();
+            for (const cmdKey of Object.keys(commandMap)) {
+                if (spacelessInput.startsWith(cmdKey)) {
+                    commandToRun = cmdKey;
+                    break;
+                }
             }
         }
 
-        const textContent = getTextFromMsg(msg.message);
-        const command = textContent?.split(' ')[0].toLowerCase();
-        
-        // 1. Roteador de Comandos de Utilidade (agora dinâmico)
-        if (command && commandMap[command]) {
-            console.log(`[Comando] Roteando para o handler do comando: ${command}`);
-            const msgDetails = { 
-                sender: senderJid, 
-                pushName, 
-                command, 
-                commandText: textContent, 
-                messageType, 
-                quotedMsgInfo: msg.message.extendedTextMessage?.contextInfo?.quotedMessage,
-                commandSenderJid: msg.key.participant || msg.key.remoteJid
-            };
-            if (await commandMap[command](sock, msg, msgDetails)) {
-                return;
+        // --- ROTEADOR DE COMANDOS ---
+        if (commandToRun) {
+            console.log(`[Comando] Roteando para o handler: ${commandToRun} (detectado de "${textContent}")`);
+            
+            if (typeof commandMap[commandToRun] === 'function') {
+                const msgDetails = { 
+                    sender: senderJid, 
+                    pushName, 
+                    command: commandToRun, 
+                    commandText: textContent, 
+                    messageType, 
+                    isGroup, 
+                    quotedMsgInfo: msg.message.extendedTextMessage?.contextInfo?.quotedMessage, 
+                    commandSenderJid: msg.key.participant || msg.key.remoteJid 
+                };
+                
+                if (await commandMap[commandToRun](sock, msg, msgDetails)) {
+                    return;
+                }
+            } else {
+                console.error(`[Erro Crítico] O comando '${commandToRun}' foi detectado, mas não é uma função executável.`);
             }
         }
+
+        // --- LÓGICA DE INTERAÇÃO COM A IA ---
         
-        // 2. Lógica de Interação Conversacional com Julia
-        const botJid = sock.user?.id?.split(':')[0] + '@s.whatsapp.net';
+        // Bloqueia IA em grupos grandes
+        if (isGroup) {
+            try {
+                const groupMetadata = await sock.groupMetadata(senderJid);
+                if (groupMetadata.participants.length > 50) {
+                    return;
+                }
+            } catch (e) {
+                console.log("Não foi possível obter metadados do grupo, prosseguindo...")
+            }
+        }
+
+        const botJid = sock.user.id.split(':')[0] + '@s.whatsapp.net';
         if (!botJid) return;
         
-        const contextInfo = msg.message.stickerMessage?.contextInfo || msg.message.imageMessage?.contextInfo || msg.message.videoMessage?.contextInfo || msg.message.audioMessage?.contextInfo || msg.message.extendedTextMessage?.contextInfo;
+        const contextInfo = msg.message.extendedTextMessage?.contextInfo;
         const mentions = contextInfo?.mentionedJid || [];
         const isReplyingToBotDirectly = contextInfo?.participant === botJid;
-        const isQuotedMessageFromBot = contextInfo?.quotedMessage?.key?.fromMe;
         
         let juliaShouldRespond = false;
-        if (isGroup) {
-            if (mentions.includes(botJid) || isReplyingToBotDirectly || isQuotedMessageFromBot) {
-                juliaShouldRespond = true;
-            }
-            if (!juliaShouldRespond && (messageType === 'imageMessage' || messageType === 'videoMessage')) {
-                if (textContent && textContent.includes(`@${botJid.split('@')[0]}`)) { 
-                    juliaShouldRespond = true;
-                }
-            }
-        } else { 
-            juliaShouldRespond = true; 
+        if (!isGroup || mentions.includes(botJid) || isReplyingToBotDirectly) {
+            juliaShouldRespond = true;
         }
+
+        const aiMode = settingsManager.getSetting(senderJid, 'aiMode', 'off');
+
+        if (juliaShouldRespond && aiMode !== 'on') {
+            if (!isGroup) {
+                await sock.sendMessage(senderJid, { text: "Minha inteligência artificial está desativada neste chat. Use `!help` para ver a lista de comandos disponíveis ou `!ia on` para me ativar." }, { quoted: msg });
+            }
+            return;
+        }
+        
+        if (!juliaShouldRespond) return;
         
         const chatSession = await sessionManager.getOrCreateChatForSession(senderJid);
         
-        if (isGroup && !juliaShouldRespond) {
-            if (await conversationalHandlers.handleSpontaneousResponse(sock, msg, chatSession, { sender: senderJid, pushName, lastMessageText: textContent, isGroup })) return; 
+        if (isGroup && await conversationalHandlers.handleSpontaneousResponse(sock, msg, chatSession, { sender: senderJid, pushName, lastMessageText: textContent, isGroup })) {
+            return;
         }
 
-        if (!juliaShouldRespond) return;
-        
         await sock.sendPresenceUpdate('composing', senderJid);
 
         const quotedMsgInfo = contextInfo?.quotedMessage;
-        const isReplying = !!quotedMsgInfo;
         const msgDetailsForHandler = { sender: senderJid, pushName, currentMessageText: textContent, quotedMsgInfo, botJid };
 
-        // Ordem de processamento conversacional
         if (messageType === 'audioMessage') { if (await conversationalHandlers.handleAudioInterpretation(sock, msg, chatSession, msgDetailsForHandler)) return; }
         if (messageType === 'stickerMessage') { if (await conversationalHandlers.handleStickerInterpretation(sock, msg, chatSession, msgDetailsForHandler)) return; }
         if (messageType === 'imageMessage') { if (await conversationalHandlers.handleImageInterpretation(sock, msg, chatSession, msgDetailsForHandler)) return; }
         if (textContent) {
+            const isReplying = !!quotedMsgInfo;
             if (isReplying) {
                 if (await conversationalHandlers.handleContextualReply(sock, msg, chatSession, msgDetailsForHandler)) return;
             } else {

@@ -2,7 +2,14 @@
 require('dotenv').config();
 const path = require('path');
 
+// A chave agora é única, lida diretamente do .env
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+
+// Lista de modelos para fallback, em ordem de preferência
+const GEMINI_MODELS = [
+    'gemini-2.5-flash-lite-preview-06-17'
+];
+
 const JULIA_SYSTEM_PROMPT = process.env.JULIA_ROLE_PROMPT;
 const JULIA_INITIAL_GREETING = "Oi! Sou a Julia, sua assistente. Pronta para ajudar e conversar. Pode me chamar ou responder minhas mensagens em grupos. E adoro figurinhas e imagens! 😊";
 const INITIAL_CONTEXT = [
@@ -15,4 +22,5 @@ const ADMIN_JID = "5522992667333@s.whatsapp.net";
 const SPONTANEOUS_RESPONSE_CHANCE = 0.000;
 const DEFAULT_MAX_OUTPUT_TOKENS = 400;
 
-module.exports = { GEMINI_API_KEY, JULIA_SYSTEM_PROMPT, JULIA_INITIAL_GREETING, INITIAL_CONTEXT, SESSIONS_DIR, AUTH_FILE_PATH, ADMIN_JID, SPONTANEOUS_RESPONSE_CHANCE, DEFAULT_MAX_OUTPUT_TOKENS };
+// Exporta a chave única e a nova lista de modelos
+module.exports = { GEMINI_API_KEY, GEMINI_MODELS, JULIA_SYSTEM_PROMPT, JULIA_INITIAL_GREETING, INITIAL_CONTEXT, SESSIONS_DIR, AUTH_FILE_PATH, ADMIN_JID, SPONTANEOUS_RESPONSE_CHANCE, DEFAULT_MAX_OUTPUT_TOKENS };
