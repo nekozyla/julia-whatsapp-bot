@@ -7,7 +7,10 @@ async function handleHelpCommand(sock, msg, msgDetails) {
     const helpText = `
 *Guia de Comandos da Julia* ✨
 
-Desenvolvida por: @nekozylajs
+Desenvolvido por: 
+
+Instagram: @nekozyla
+Twitter:@nekozylajs
 
 Aqui está uma lista de tudo que eu posso fazer!
 
@@ -15,25 +18,16 @@ Aqui está uma lista de tudo que eu posso fazer!
 
 *!sticker*
 _Cria uma figurinha a partir de uma imagem ou GIF. Envie na legenda ou responda a uma mídia com o comando._
-Ex: (envie uma imagem com a legenda !sticker)
+Se quiser uma figurinha quadrada, use "quadrado" após o comando
+Ex: (envie uma imagem com a legenda !sticker, ou responda uma imagem)
+
+*!toimage*
+_Converte uma figurinha (sticker) de volta para uma imagem._
+Ex: (responda a uma figurinha com !toimage)
 
 *!patpat*
 _Cria um meme 'pat-pat' com uma imagem._
 Ex: (envie uma imagem com a legenda !patpat)
-
-*--- 🛠️ Utilidades e Lembretes ---*
-
-*!transcrever*
-_Transcreve o conteúdo de uma mensagem de áudio._
-Ex: (responda a um áudio com !transcrever)
-
-*!lembrete [data] [mensagem]*
-_Agenda um lembrete. Use DD/MM para eventos anuais ou DD/MM/AAAA para eventos únicos._
-Ex: \`!lembrete 31/12 Fogos na praia!\`
-
-*!lembretes*
-_Mostra os lembretes que estão agendados para este chat._
-Ex: \`!lembretes\`
 
 *--- 🎉 Diversão e Interação ---*
 
@@ -45,17 +39,42 @@ Ex: \`!top10 mais legais do grupo\`
 _Calcula a compatibilidade entre duas pessoas. Se marcar só uma, o 'ship' é com você!_
 Ex: \`!shipp @Amigo\` ou \`!shipp @Amigo1 @Amiga2\`
 
-*!gado [@pessoa]*
+*!gadometro [@pessoa]*
 _Mede o seu nível de 'gado' ou o de alguém que você marcar._
 Ex: \`!gado @Amigo\` ou apenas \`!gado\`
 
 
+*--- ⚙️ Configurações e Modos ---*
 
-*--- 🤖 Interação com a IA ---*
+*!ia [on/off]*
+_Ativa ou desativa minhas funções de conversa com Inteligência Artificial neste chat._
+Ex: \`!ia on\`
+
+*!modosticker [on/off]*
+_No privado, ativa/desativa a conversão automática de toda imagem para figurinha._
+Ex: \`!modosticker off\`
+
+*!modotranscricao [on/off]*
+_Em grupos, ativa/desativa a transcrição automática de todos os áudios._
+Ex: \`!modotranscricao on\`
+
+*!chato*
+_Bloqueia você das brincadeiras e do uso de comandos neste grupo._
+
+*!voltar*
+_Remove seu bloqueio das brincadeiras e comandos do grupo._
+
+
+*--- 🛠️ Utilidades ---*
+
+*!transcrever*
+_Transcreve o conteúdo de uma mensagem de áudio respondida._
+Ex: (responda a um áudio com !transcrever)
 
 *!pesquisa [pergunta]*
-_Envia uma pergunta direta para a IA, sem a persona da Julia, para respostas mais objetivas._
+_Realiza uma busca na internet e resume o resultado de forma objetiva._
 Ex: \`!pesquisa me explique sobre buracos negros\`
+
 
 *--- 👑 Comandos de Admin ---*
 _(Apenas o número definido como admin pode usar)_
@@ -63,10 +82,6 @@ _(Apenas o número definido como admin pode usar)_
 *!todos [mensagem]*
 _Menciona todos os membros do grupo._
 Ex: \`!todos Reunião importante amanhã!\`
-
-*!modotranscricao [on/off]*
-_Ativa ou desativa a transcrição automática de todos os áudios neste chat._
-Ex: \`!modotranscricao on\`
 `;
 
     try {

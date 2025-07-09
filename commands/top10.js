@@ -1,5 +1,6 @@
 // commands/top10.js
 const { sendJuliaError } = require('../utils'); // Reutilizando a função de erro
+const settingsManager = require('../groupSettingsManager'); // Importa o gerenciador de configurações
 
 /**
  * Embaralha um array de forma aleatória.
@@ -35,19 +36,29 @@ async function handleTop10Command(sock, msg, msgDetails) {
         const groupMetadata = await sock.groupMetadata(sender);
         const participants = groupMetadata.participants;
         
-        // 4. Filtra o próprio bot da lista e pega apenas os JIDs
+        // 4. Filtra o próprio bot e os usuários que optaram por não participar
         const botJid = sock.user.id.split(':')[0] + '@s.whatsapp.net';
-        let userParticipants = participants.map(p => p.id).filter(id => id !== botJid);
-
-        // 5. Embaralha os participantes e seleciona os 10 primeiros
-        userParticipants = shuffleArray(userParticipants);
-        const top10Participants = userParticipants.slice(0, 10);
+        const optedOutUsers = settingsManager.getSetting(sender, 'optedOutUsers', []);
         
-        // 6. Monta a mensagem final do Top 10
-        let messageText = `🏆 *TOP 10 ${top10Title.toUpperCase()}* 🏆\n\n`;
+        let userParticipants = participants
+            .map(p => p.id)
+            .filter(id => id !== botJid && !optedOutUsers.includes(id));
+
+        // Verifica se sobraram participantes para o sorteio
+        if (userParticipants.length === 0) {
+            await sock.sendMessage(sender, { text: "Ninguém quer brincar neste grupo... 😢" }, { quoted: msg });
+            return true;
+        }
+
+        // 5. Embaralha os participantes e seleciona até 10
+        userParticipants = shuffleArray(userParticipants);
+        const topParticipants = userParticipants.slice(0, 10);
+        
+        // 6. Monta a mensagem final do Top
+        let messageText = `🏆 *TOP ${topParticipants.length} - ${top10Title.toUpperCase()}* 🏆\n\n`;
         
         const mentions = [];
-        top10Participants.forEach((jid, index) => {
+        topParticipants.forEach((jid, index) => {
             messageText += `${index + 1}º - @${jid.split('@')[0]}\n`;
             mentions.push(jid);
         });
@@ -57,7 +68,7 @@ async function handleTop10Command(sock, msg, msgDetails) {
         // 7. Envia a mensagem com as menções
         await sock.sendMessage(sender, {
             text: messageText.trim(),
-            mentions: mentions // Este campo notifica os usuários
+            mentions: mentions
         });
 
     } catch (error) {
