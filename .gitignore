@@ -18,6 +18,7 @@ auth_julia_whatsapp/
 whatsapp_julia_sessions/
 reminders.json
 groupSettings.json
+cookies.txt
 
 # Pastas temporárias de mídia
 temp_memes/
