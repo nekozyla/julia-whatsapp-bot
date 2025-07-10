@@ -16,10 +16,18 @@ Aqui está uma lista de tudo que eu posso fazer!
 
 *--- 🎨 Mídia e Criação ---*
 
-*!sticker*
-_Cria uma figurinha a partir de uma imagem ou GIF. Envie na legenda ou responda a uma mídia com o comando._
-Se quiser uma figurinha quadrada, use "quadrado" após o comando
-Ex: (envie uma imagem com a legenda !sticker, ou responda uma imagem)
+*!sticker [opções]*
+_Cria uma figurinha a partir de uma imagem ou GIF. Responda a uma mídia ou envie na legenda._
+
+*Opções disponíveis:*
+- \`pack:"nome_do_pacote"\`
+  _Define o nome do pacote. Use aspas._
+  Ex: \`!sticker pack:"Memes_da_Turma"\`
+
+- \`quadrado\`
+  _Cria uma figurinha quadrada (apenas para imagens). Vídeos/GIFs já são sempre quadrados._
+  Ex: \`!sticker quadrado\`
+
 
 *!toimage*
 _Converte uma figurinha (sticker) de volta para uma imagem._

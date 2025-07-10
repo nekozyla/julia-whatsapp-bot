@@ -28,7 +28,6 @@ function loadCommands() {
                 const commandName = `!${path.basename(file, '.js')}`;
                 const handler = require(path.join(commandDir, file));
 
-                // Verificação de segurança: garante que o que foi carregado é de fato uma função
                 if (typeof handler === 'function') {
                     commandMap[commandName] = handler;
                     console.log(`[Comandos] Comando carregado: ${commandName}`);
@@ -71,11 +70,30 @@ async function startJulia() {
         const messageType = getContentType(msg.message);
         const textContent = getTextFromMsg(msg.message);
         
-        // --- LÓGICA DE DETECÇÃO DE COMANDOS (com tolerância a espaços) ---
+        // --- LÓGICA DO MODO STICKER AUTOMÁTICO ---
+        if (!isGroup && (messageType === 'imageMessage' || messageType === 'videoMessage') && !textContent?.startsWith('!')) {
+            const stickerMode = settingsManager.getSetting(senderJid, 'stickerMode', 'on');
+            
+            if (stickerMode === 'on') {
+                console.log(`[Modo Sticker] Ativado para ${senderJid}. Iniciando criação automática.`);
+                const stickerHandler = commandMap['!sticker'];
+                if (typeof stickerHandler === 'function') {
+                    await stickerHandler(sock, msg, {
+                        sender: senderJid, pushName, command: '!sticker', commandText: '!sticker',
+                        messageType, isGroup, quotedMsgInfo: null, commandSenderJid: senderJid
+                    });
+                }
+                return;
+            }
+        }
+
+        // --- LÓGICA DE DETECÇÃO DE COMANDOS (CORRIGIDA) ---
         let commandToRun = null;
         if (textContent?.startsWith('!')) {
             const spacelessInput = textContent.substring(0, 30).replace(/\s+/g, '').toLowerCase();
-            for (const cmdKey of Object.keys(commandMap)) {
+            const sortedCommands = Object.keys(commandMap).sort((a, b) => b.length - a.length);
+
+            for (const cmdKey of sortedCommands) {
                 if (spacelessInput.startsWith(cmdKey)) {
                     commandToRun = cmdKey;
                     break;
@@ -85,40 +103,29 @@ async function startJulia() {
 
         // --- ROTEADOR DE COMANDOS ---
         if (commandToRun) {
-            console.log(`[Comando] Roteando para o handler: ${commandToRun} (detectado de "${textContent}")`);
+            console.log(`[Comando] Roteando para o handler: ${commandToRun} (de "${textContent}")`);
             
             if (typeof commandMap[commandToRun] === 'function') {
                 const msgDetails = { 
-                    sender: senderJid, 
-                    pushName, 
-                    command: commandToRun, 
-                    commandText: textContent, 
-                    messageType, 
-                    isGroup, 
-                    quotedMsgInfo: msg.message.extendedTextMessage?.contextInfo?.quotedMessage, 
+                    sender: senderJid, pushName, command: commandToRun, commandText: textContent, 
+                    messageType, isGroup, quotedMsgInfo: msg.message.extendedTextMessage?.contextInfo?.quotedMessage, 
                     commandSenderJid: msg.key.participant || msg.key.remoteJid 
                 };
-                
                 if (await commandMap[commandToRun](sock, msg, msgDetails)) {
                     return;
                 }
-            } else {
-                console.error(`[Erro Crítico] O comando '${commandToRun}' foi detectado, mas não é uma função executável.`);
             }
         }
-
+        
         // --- LÓGICA DE INTERAÇÃO COM A IA ---
         
-        // Bloqueia IA em grupos grandes
         if (isGroup) {
             try {
                 const groupMetadata = await sock.groupMetadata(senderJid);
                 if (groupMetadata.participants.length > 50) {
-                    return;
+                    return; 
                 }
-            } catch (e) {
-                console.log("Não foi possível obter metadados do grupo, prosseguindo...")
-            }
+            } catch (e) { /* Ignora erro */ }
         }
 
         const botJid = sock.user.id.split(':')[0] + '@s.whatsapp.net';
@@ -177,7 +184,7 @@ async function startJulia() {
         if (connection === 'open') {
             console.log('✅ Julia conectada ao WhatsApp!');
             if (!schedulerIntervalId) {
-                schedulerIntervalId = scheduler.initializeScheduler(sock);
+                scheduler.initializeScheduler(sock);
             }
         }
         if (connection === 'close') {
