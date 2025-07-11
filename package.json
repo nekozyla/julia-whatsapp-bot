@@ -6,6 +6,7 @@
     "dayjs": "^1.11.13",
     "dotenv": "^16.5.0",
     "ffmpeg-static": "^5.2.0",
+    "ffprobe-static": "^3.1.0",
     "gif-frames": "^1.0.1",
     "jimp": "^0.16.13",
     "node-fetch": "^2.7.0",
