@@ -1,196 +1,111 @@
 // messageHandlers.js
-const { downloadMediaMessage, getContentType } = require('@whiskeysockets/baileys');
+const { getContentType } = require('@whiskeysockets/baileys');
 const { model } = require('./geminiClient'); 
 const { saveSessionHistory, clearSession, getOrCreateChatForSession } = require('./sessionManager');
-const { JULIA_INITIAL_GREETING, SPONTANEOUS_RESPONSE_CHANCE } = require('./config');
-const { getTextFromMsg, sendJuliaError, convertAudioToWav } = require('./utils'); // Importa a nova função de áudio
+const { sendJuliaError } = require('./utils');
 
-// As funções de comando foram movidas para a pasta /commands.
-// Este arquivo agora lida apenas com a lógica de CONVERSA.
-
-async function handleSpontaneousResponse(sock, msg, chatSession, msgDetails) {
-    const { sender, pushName, lastMessageText, isGroup } = msgDetails;
-    if (isGroup && Math.random() < SPONTANEOUS_RESPONSE_CHANCE) {
-        try {
-            await sock.sendPresenceUpdate('composing', sender);
-            const contextText = lastMessageText || "uma ação no grupo";
-            let spontaneousPromptText = `Como uma participante de um grupo de WhatsApp chamada Julia, faça um comentário curto e pertinente ou divertido sobre a seguinte mensagem enviada por '${pushName}': "${contextText}". Se não tiver o que comentar, apenas diga algo amigável e espontâneo para o grupo, faça um comentario unico e de forma nenhuma faça varios, esta mensagem sera imediatamente enviada a conversa`;
-            
-            const result = await model.generateContent(spontaneousPromptText);
-            const juliaSpontaneousText = result.response.text();
-            
-            if (juliaSpontaneousText) {
-                await sock.sendMessage(sender, { text: juliaSpontaneousText }); 
-            }
-            return true; 
-        } catch (error) { 
-            console.error(`[Julia Espontânea] Erro:`, error);
-        }
+function parseCommandFromResponse(responseText) {
+    const commandRegex = /\[DO_COMMAND\](.*?)\[\/DO_COMMAND\]/;
+    const match = responseText.match(commandRegex);
+    if (match && match[1]) {
+        return {
+            commandName: match[1].trim().toLowerCase(),
+            cleanedText: responseText.replace(commandRegex, '').trim()
+        };
     }
-    return false; 
+    return null;
 }
 
-async function handleContextualReply(sock, msg, chatSession, msgDetails) {
-    const { sender, pushName, currentMessageText, quotedMsgInfo } = msgDetails;
-    
-    const quotedOriginalMessageType = getContentType(quotedMsgInfo?.message);
-    const quotedText = getTextFromMsg(quotedMsgInfo); 
-    
-    let quotedAuthorDescriptor = "alguém";
-    const quotedParticipantJid = msg.message.extendedTextMessage?.contextInfo?.participant;
-    const currentUserJid = msg.key.participant || msg.key.remoteJid; 
+async function processAIResponse(sock, originalMsg, responseText, chatSession, commandMap) {
+    const commandAction = parseCommandFromResponse(responseText);
+    const senderJid = originalMsg.key.remoteJid;
+    const pushName = originalMsg.pushName || 'alguém';
 
-    if (quotedMsgInfo?.key?.fromMe) { 
-        quotedAuthorDescriptor = "você (Julia)";
-    } else if (quotedParticipantJid) {
-        if (quotedParticipantJid === currentUserJid) { 
-            quotedAuthorDescriptor = pushName; 
-        } else {
-            quotedAuthorDescriptor = `o usuário ${quotedParticipantJid.split('@')[0]}`;
+    if (commandAction?.commandName) {
+        console.log(`[IA-Comando] Julia decidiu executar o comando: '${commandAction.commandName}'`);
+        
+        if (commandAction.cleanedText) {
+            await sock.sendMessage(senderJid, { text: commandAction.cleanedText }, { quoted: originalMsg });
+        }
+
+        const commandHandler = commandMap[`!${commandAction.commandName}`];
+        if (typeof commandHandler === 'function') {
+            let targetMsg = null;
+            const quotedMsgInfo = originalMsg.message?.extendedTextMessage?.contextInfo;
+
+            if (quotedMsgInfo?.quotedMessage?.imageMessage || quotedMsgInfo?.quotedMessage?.videoMessage) {
+                targetMsg = {
+                    key: { remoteJid: senderJid, id: quotedMsgInfo.stanzaId, participant: quotedMsgInfo.participant },
+                    message: quotedMsgInfo.quotedMessage
+                };
+            } else {
+                const history = await chatSession.getHistory();
+                targetMsg = history.slice().reverse().find(entry => entry.role === 'user' && (entry.message?.imageMessage || entry.message?.videoMessage));
+            }
+
+            if (targetMsg) {
+                console.log(`[IA-Comando] Alvo encontrado: Mensagem ${targetMsg.key.id}`);
+                const fakeMsgDetails = {
+                    sender: senderJid, pushName, command: `!${commandAction.commandName}`,
+                    commandText: `!${commandAction.commandName}`,
+                    messageType: getContentType(targetMsg.message), isGroup: senderJid.endsWith('@g.us'),
+                    quotedMsgInfo: targetMsg.message,
+                    commandSenderJid: originalMsg.key.participant || originalMsg.key.remoteJid
+                };
+                await commandHandler(sock, targetMsg, fakeMsgDetails);
+            } else {
+                await sock.sendMessage(senderJid, { text: "Qual foi, mermão, tu pediu pra fazer a parada mas não achei nenhuma imagem ou vídeo pra usar." }, { quoted: originalMsg });
+            }
+        }
+        return;
+    }
+
+    await sock.sendMessage(senderJid, { text: responseText }, { quoted: originalMsg });
+}
+
+// Handler Único e Principal
+async function handleAnyMessage(sock, msg, chatSession, msgDetails, sessionManager, commandMap) {
+    const text = msgDetails.currentMessageText || "";
+
+    if (text.toLowerCase() === '/limpar') {
+        await clearSession(msgDetails.sender);
+        await sock.sendMessage(msgDetails.sender, { text: "Seu histórico de conversa comigo foi limpo! ✨" }, { quoted: msg }); 
+        return true;
+    }
+    
+    let contextForAI = "[CONTEXTO: TEXTO]";
+    const quotedMsgInfo = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+
+    if (quotedMsgInfo?.imageMessage || quotedMsgInfo?.videoMessage) {
+        contextForAI = "[CONTEXTO: MÍDIA]";
+    } else {
+        const history = await chatSession.getHistory();
+        if (history.length > 0) {
+            const lastMessage = history[history.length - 1];
+            if (lastMessage.role === 'user' && (lastMessage.message?.imageMessage || lastMessage.message?.videoMessage)) {
+                contextForAI = "[CONTEXTO: MÍDIA]";
+            }
         }
     }
     
-    let replyContextString;
-    let specificInstructionForJulia;
+    const userMessageForGemini = `${contextForAI} (${msgDetails.pushName}): ${text}`;
+    console.log(`[Prompt para IA] Enviando: "${userMessageForGemini}"`);
 
-    if (quotedOriginalMessageType === 'imageMessage') {
-        const cleanQuotedCaption = quotedText ? quotedText.replace(/\s+/g, ' ').trim().substring(0, 150) : "";
-        replyContextString = `(em resposta a uma IMAGEM enviada por ${quotedAuthorDescriptor}${cleanQuotedCaption ? ` com a legenda: "${cleanQuotedCaption}"` : ''}) se a legenda tiver algo como um pedido para fazer figurinha, diga apenas "use !help para ver todos os comandos`;
-        specificInstructionForJulia = `Julia, minha mensagem é um comentário sobre a IMAGEM anterior de ${quotedAuthorDescriptor}. Por favor, responda ao meu comentário sobre essa imagem.`;
-    } else if (quotedText?.trim()) {
-        const cleanQuotedText = quotedText.replace(/\s+/g, ' ').trim().substring(0, 200); 
-        replyContextString = `(em resposta a ${quotedAuthorDescriptor} que disse: "${cleanQuotedText}")`;
-        specificInstructionForJulia = `Julia, por favor, comente sobre a minha resposta à mensagem anterior de ${quotedAuthorDescriptor}.`;
-    } else {
-        replyContextString = `(em resposta a uma mensagem anterior de ${quotedAuthorDescriptor} que não tinha texto)`;
-        specificInstructionForJulia = `Julia, por favor, comente sobre a minha resposta, considerando que ela se refere a uma mensagem anterior de ${quotedAuthorDescriptor}.`;
-    }
-    
-    const userMessageForGemini = `(${pushName}): "${currentMessageText}"\n\n${replyContextString}\n\n${specificInstructionForJulia} Mantenha o fio da conversa e o seu estilo.`;
-    
     try {
         const result = await chatSession.sendMessage(userMessageForGemini);
-        const juliaText = result.response.text();
-        await sock.sendMessage(sender, { text: juliaText }, { quoted: msg }); 
-        if (chatSession.history) await saveSessionHistory(sender, chatSession.history);
-    } catch (error) { 
-        await sendJuliaError(sock, sender, msg, error); 
-    }
-    return true;
-}
-
-async function handleStickerInterpretation(sock, msg, chatSession, msgDetails) {
-    const { sender, pushName } = msgDetails;
-    try {
-        const stickerBuffer = await downloadMediaMessage(msg, 'buffer', {}, { logger: undefined });
-        const stickerBase64 = stickerBuffer.toString('base64');
-        const stickerMimeType = msg.message.stickerMessage.mimetype || 'image/webp';
-        const promptParts = [
-            { inlineData: { mimeType: stickerMimeType, data: stickerBase64 } },
-            { text: `(Figurinha enviada por ${pushName}). Julia, considerando nossa conversa até agora, reaja a esta figurinha de forma curta e divertida.` }
-        ];
-        const result = await chatSession.sendMessage(promptParts);
-        const juliaResponseToSticker = result.response.text();
-        await sock.sendMessage(sender, { text: juliaResponseToSticker }, { quoted: msg }); 
-        if (chatSession.history) await saveSessionHistory(sender, chatSession.history);
-    } catch (error) { 
-        await sendJuliaError(sock, sender, msg, error); 
-    }
-    return true;
-}
-
-async function handleImageInterpretation(sock, msg, chatSession, msgDetails) {
-    const { sender, pushName, currentMessageText } = msgDetails; 
-    try {
-        const imageBuffer = await downloadMediaMessage(msg, 'buffer', {}, { logger: undefined });
-        const imageBase64 = imageBuffer.toString('base64');
-        const imageMimeType = msg.message.imageMessage.mimetype || 'image/jpeg';
-        const promptParts = [
-            { inlineData: { mimeType: imageMimeType, data: imageBase64 } },
-            { text: `(Imagem enviada por ${pushName}${currentMessageText ? ` com a legenda: "${currentMessageText}"` : ''}). Julia, por favor, descreva ou comente sobre esta imagem.` }
-        ];
-        const result = await chatSession.sendMessage(promptParts);
-        const juliaResponseToImage = result.response.text();
-        await sock.sendMessage(sender, { text: juliaResponseToImage }, { quoted: msg }); 
-        if (chatSession.history) await saveSessionHistory(sender, chatSession.history);
-    } catch (error) { 
-        await sendJuliaError(sock, sender, msg, error); 
-    }
-    return true; 
-}
-
-// --- NOVA FUNÇÃO ---
-async function handleAudioInterpretation(sock, msg, chatSession, msgDetails) {
-    const { sender, pushName } = msgDetails;
-    console.log(`[Julia] Áudio recebido de ${pushName} no chat ${sender} para interpretação.`);
-
-    try {
-        // Baixa o áudio original
-        const audioBuffer = await downloadMediaMessage(msg, 'buffer', {}, { logger: undefined });
+        const responseText = result.response.text();
         
-        // Converte para um formato padrão (WAV) usando nossa nova função utilitária
-        const wavBuffer = await convertAudioToWav(audioBuffer);
-        const audioBase64 = wavBuffer.toString('base64');
-
-        // Monta o prompt multimodal para o Gemini
-        const promptParts = [
-            { inlineData: { mimeType: 'audio/wav', data: audioBase64 } },
-            { text: `(Áudio enviado por ${pushName}). Julia, ouça este áudio, entenda o que foi dito e responda de forma apropriada, mantendo o contexto da nossa conversa e o seu estilo.` }
-        ];
+        await processAIResponse(sock, msg, responseText, chatSession, commandMap);
         
-        console.log(`[Julia] Enviando áudio de ${pushName} para o Gemini...`);
-        const result = await chatSession.sendMessage(promptParts);
-        const response = await result.response;
-        const juliaText = response.text();
-        console.log(`[Julia] Resposta do Gemini para o áudio: "${juliaText}"`);
-
-        await sock.sendMessage(sender, { text: juliaText }, { quoted: msg });
-        if (chatSession.history) await saveSessionHistory(sender, chatSession.history);
+        const currentHistory = await chatSession.getHistory();
+        await saveSessionHistory(msgDetails.sender, currentHistory);
 
     } catch (error) {
-        console.error(`[Julia] Erro ao interpretar áudio de ${pushName}:`, error);
-        await sendJuliaError(sock, sender, msg, error);
-    }
-    return true;
-}
-
-
-async function handleTextMessage(sock, msg, chatSession, msgDetails, sessionManager) {
-    const { sender, pushName, currentMessageText } = msgDetails;
-    
-    if (currentMessageText.toLowerCase() === '/start' || currentMessageText.toLowerCase() === '/iniciar') {
-        console.log(`[Julia] Comando /start recebido do usuário: ${sender}. Recriando sessão.`);
-        await sessionManager.clearSession(sender); 
-        await getOrCreateChatForSession(sender);
-        await sock.sendMessage(sender, { text: JULIA_INITIAL_GREETING }, { quoted: msg }); 
-        return true;
-    }
-    if (currentMessageText.toLowerCase() === '/limpar') {
-        await sessionManager.clearSession(sender);
-        await sock.sendMessage(sender, { text: "Seu histórico de conversa comigo foi limpo! ✨" }, { quoted: msg }); 
-        console.log(`[Julia] Histórico limpo para o usuário: ${sender}`);
-        return true;
-    }
-    
-    const userMessageForGemini = `(${pushName}): ${currentMessageText}`;
-    try {
-        const result = await chatSession.sendMessage(userMessageForGemini);
-        const juliaText = result.response.text();
-        
-        await sock.sendMessage(sender, { text: juliaText }, { quoted: msg }); 
-        if (chatSession.history) await saveSessionHistory(sender, chatSession.history);
-    } catch (error) { 
-        await sendJuliaError(sock, sender, msg, error); 
+        await sendJuliaError(sock, msgDetails.sender, msg, error);
     }
     return true; 
 }
 
-
 module.exports = {
-    handleSpontaneousResponse,
-    handleContextualReply,
-    handleStickerInterpretation,
-    handleImageInterpretation, 
-    handleAudioInterpretation, // Exporta a nova função de áudio
-    handleTextMessage
+    handleAnyMessage
 };

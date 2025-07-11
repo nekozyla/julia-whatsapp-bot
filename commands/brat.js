@@ -2,95 +2,102 @@
 const { Sticker, StickerTypes } = require('wa-sticker-formatter');
 const sharp = require('sharp');
 
-async function handleBratCommand(sock, msg, msgDetails) {
-    const { sender, commandText, pushName } = msgDetails;
+/**
+ * Quebra o texto em múltiplas linhas para caber na imagem.
+ * @param {string} text - O texto a ser quebrado.
+ * @param {number} maxCharsPerLine - Máximo de caracteres por linha.
+ * @returns {string[]} - Um array com as linhas de texto.
+ */
+function wrapText(text, maxCharsPerLine) {
+    const words = text.split(' ');
+    const lines = [];
+    let currentLine = '';
 
-    let args = (commandText || '').substring(msgDetails.command.length).trim().split(' ');
-    
-    // 1. Determina o tema e o texto
-    let theme = 'green'; // Tema padrão
-    let textForSticker = '';
-
-    if (args[0].toLowerCase() === 'green' || args[0].toLowerCase() === 'white') {
-        theme = args[0].toLowerCase();
-        textForSticker = args.slice(1).join(' ');
-    } else {
-        textForSticker = args.join(' ');
+    for (const word of words) {
+        if ((currentLine + ' ' + word).length > maxCharsPerLine && currentLine.length > 0) {
+            lines.push(currentLine);
+            currentLine = word;
+        } else {
+            currentLine += (currentLine ? ' ' : '') + word;
+        }
     }
+    if (currentLine) {
+        lines.push(currentLine);
+    }
+    return lines;
+}
+
+async function handleBratCommand(sock, msg, msgDetails) {
+    const { sender, command, commandText, pushName } = msgDetails;
+
+    const textForSticker = commandText.substring(command.length).trim();
 
     if (!textForSticker) {
-        await sock.sendMessage(sender, { text: "Você precisa me dizer o que escrever!\n\n*Exemplos:*\n`!brat club classics`\n`!brat white a Glimmer of Hope`" }, { quoted: msg });
+        await sock.sendMessage(sender, { text: "Qual foi, porra? Tu tem que me dizer o que escrever. Manda o comando e o texto, caralho." }, { quoted: msg });
         return true;
     }
     
-    const escapedText = textForSticker
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-
-    console.log(`[Brat] ${pushName} solicitou uma figurinha tema '${theme}' com o texto: "${textForSticker}"`);
+    console.log(`[Brat] ${pushName} pediu um sticker com o texto: "${textForSticker}"`);
 
     try {
         await sock.sendPresenceUpdate('composing', sender);
 
-        // 2. Define as configurações de cada tema
-        let backgroundColor, textColor, fontSize, blurAmount;
+        const bratGreen = '#7CFC00';
+        const textColor = '#000000';
+        const imageWidth = 512;
+        const imageHeight = 512;
+        
+        let fontSize, maxCharsPerLine;
+        if (textForSticker.length < 15) { fontSize = 85; maxCharsPerLine = 10; }
+        else if (textForSticker.length < 40) { fontSize = 70; maxCharsPerLine = 15; }
+        else if (textForSticker.length < 90) { fontSize = 55; maxCharsPerLine = 20; }
+        else { fontSize = 45; maxCharsPerLine = 25; }
 
-        if (theme === 'white') {
-            backgroundColor = '#FFFFFF'; // Branco
-            textColor = '#000000';       // Preto
-            fontSize = 90;
-            blurAmount = 2;
-        } else { // Padrão é 'green'
-            backgroundColor = '#7CFC00'; // Verde "Brat"
-            textColor = '#000000';       // Preto
-            fontSize = 60;
-            blurAmount = 1.5;
-        }
+        const lines = wrapText(textForSticker, maxCharsPerLine);
+        const lineHeight = fontSize * 1.1;
 
-        // 3. Cria a imagem base com a cor de fundo
-        let image = sharp({
-            create: {
-                width: 512,
-                height: 512,
-                channels: 4,
-                background: backgroundColor
-            }
-        });
+        const svgTspans = lines.map((line, index) => {
+            const escapedLine = line.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            return `<tspan x="50%" dy="${index === 0 ? 0 : lineHeight}px">${escapedLine}</tspan>`;
+        }).join('');
+        
+        const totalTextHeight = (lines.length -1) * lineHeight;
+        const startY = (imageHeight / 2) - (totalTextHeight / 2);
 
-        // 4. Cria o texto em SVG para sobrepor
         const svgText = `
-        <svg width="500" height="500">
+        <svg width="${imageWidth}" height="${imageHeight}">
             <style>
                 .title {
-                    fill: ${textColor};
+                    fill: "${textColor}";
                     font-size: ${fontSize}px;
                     font-family: 'Arial Narrow', Impact, sans-serif;
                     font-weight: 700;
                     text-anchor: middle;
                     dominant-baseline: middle;
-                    text-transform: lowercase;
                 }
             </style>
-            <text x="50%" y="50%" class="title">${escapedText}</text>
+            <text y="${startY}" class="title">${svgTspans}</text>
         </svg>
         `;
 
-        // 5. Sobrepõe o texto e aplica o efeito de desfoque (blur)
-        const finalImageBuffer = await image
-            .composite([{ input: Buffer.from(svgText) }])
-            .blur(blurAmount) // Aplica o desfoque
-            .png()
-            .toBuffer();
+        const imageBuffer = await sharp({
+            create: {
+                width: imageWidth,
+                height: imageHeight,
+                channels: 4,
+                background: bratGreen
+            }
+        })
+        .composite([{ input: Buffer.from(svgText) }])
+        .blur(40) // BLUR AUMENTADO AINDA MAIS
+        .webp({ quality: 15 })
+        .toBuffer();
 
-        // 6. Usa o wa-sticker-formatter para criar a figurinha
-        const sticker = new Sticker(finalImageBuffer, {
-            pack: `Brat (${theme})`,
-            author: pushName,
-            type: StickerTypes.DEFAULT,
-            quality: 90,
+        const sticker = new Sticker(imageBuffer, {
+            pack: 'Brat',
+            author: "Jul.ia by @nekozylajs",
+            type: StickerTypes.FULL,
+            quality: 15,
         });
         
         const stickerMessage = await sticker.toMessage();
@@ -99,7 +106,7 @@ async function handleBratCommand(sock, msg, msgDetails) {
 
     } catch (err) {
         console.error('[Brat] Erro ao criar figurinha:', err);
-        await sock.sendMessage(sender, { text: `Tive um probleminha pra fazer sua figurinha 😕.\n\n_${err.message}_` });
+        await sock.sendMessage(sender, { text: `Deu merda pra fazer essa figurinha, caralho. Tenta de novo.` });
     }
     
     return true; 
