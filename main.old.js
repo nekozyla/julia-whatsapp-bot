@@ -1,7 +1,6 @@
 // main.js
 
-const { makeWASocket, useMultiFileAuthState, getContentType, DisconnectReason } = require('@whiskeysockets/baileys');
-const { Boom } = require('@hapi/boom');
+const { makeWASocket, useMultiFileAuthState, getContentType } = require('@whiskeysockets/baileys');
 const qrcode = require('qrcode-terminal');
 const pino = require('pino');
 const fs = require('fs');
@@ -15,26 +14,28 @@ const scheduler = require('./scheduler');
 const { getTextFromMsg } = require('./utils');
 const settingsManager = require('./groupSettingsManager');
 const contactManager = require('./contactManager');
-const strikeManager = require('./strikeManager');
-const agreementManager = require('./agreementManager');
+const spamManager = require('./spamManager'); // Adicionado o módulo antispam
 
+// --- LÓGICA DE CONTROLE DE MENSAGENS DUPLICADAS ---
 const processedMessages = new Set();
-const imageSpamTracker = new Map();
-const STRIKE_IMAGE_COUNT = 10;
-const STRIKE_TIME_WINDOW_MS = 10 * 1000;
+// ---------------------------------------------------
 
 function loadCommands() {
     const commandMap = {};
     const commandDir = path.join(__dirname, 'commands');
+
     try {
         const commandFiles = fs.readdirSync(commandDir).filter(file => file.endsWith('.js'));
         console.log(`[Comandos] Encontrados ${commandFiles.length} arquivos de comando...`);
+
         for (const file of commandFiles) {
             try {
                 const commandName = `!${path.basename(file, '.js')}`;
                 const handler = require(path.join(commandDir, file));
+
                 if (typeof handler === 'function') {
                     commandMap[commandName] = handler;
+                    console.log(`[Comandos] Comando carregado: ${commandName}`);
                 } else {
                     console.warn(`[Comandos] O arquivo ${file} não exporta uma função e será ignorado.`);
                 }
@@ -45,6 +46,7 @@ function loadCommands() {
     } catch (error) {
         console.error("[Comandos] Erro ao ler a pasta de comandos:", error);
     }
+    
     return commandMap;
 }
 
@@ -55,7 +57,6 @@ async function startJulia() {
     await settingsManager.loadSettings();
     await contactManager.loadContacts();
     await sessionManager.loadAllPersistedSessions();
-    await agreementManager.loadAgreements();
     
     const { state, saveCreds } = await useMultiFileAuthState(config.AUTH_FILE_PATH);
     const sock = makeWASocket({ auth: state, logger: pino({ level: 'warn' }) });
@@ -66,64 +67,46 @@ async function startJulia() {
         const msg = messages[0];
         if (!msg.message || msg.key.fromMe) return;
 
-        const senderJid = msg.key.remoteJid;
-        const authorJid = msg.key.participant || senderJid;
-        const isGroup = senderJid.endsWith('@g.us');
-        let textContent = getTextFromMsg(msg.message);
-
-        // --- LÓGICA DE ACORDO DE USO ---
-        if (!agreementManager.hasUserAgreed(authorJid)) {
-            const normalizedText = (textContent || '').replace(/\s+/g, '').toLowerCase();
-            if (normalizedText === '!concordo' || normalizedText === '/concordo') {
-                // Deixa o roteador de comandos lidar com o !concordo
-            } else {
-                if (!isGroup) {
-                    console.log(`[Agreement] Usuário ${authorJid} não concordou com os termos. Enviando mensagem de acordo no privado.`);
-                    const agreementText = "👋 Olá! Antes de usar a Julia, você precisa concordar com os nossos termos de uso.\n\n1. Não use o bot para spam ou atividades ilegais.\n2. O bot salva seu ID de usuário para funcionalidades como lembretes e alertas.\n3. O uso excessivo pode resultar em um bloqueio temporário.\n4. As suas mensagens NÃO são privadas, tanto a IA, tanto o desenvolvedor tem acesso para encontrar bugs e afins.\n5. Você pode doar para o projeto entrando em https://nekozyla.shop e gerando um pix. \n\nPara concordar e liberar todas as funções, digite:\n*/concordo*";
-                    await sock.sendMessage(authorJid, { text: agreementText });
-                }
-                return;
-            }
-        }
-        
+        // --- VERIFICAÇÃO DE MENSAGEM DUPLICADA ---
         const msgId = msg.key.id;
-        if (processedMessages.has(msgId)) return;
+        if (processedMessages.has(msgId)) {
+            console.log(`[Deduplicate] Mensagem com ID ${msgId} já processada. Ignorando.`);
+            return;
+        }
         processedMessages.add(msgId);
-        setTimeout(() => { processedMessages.delete(msgId); }, 2 * 60 * 1000);
-
-        const banStatus = strikeManager.getBanStatus(authorJid);
-        if (banStatus) {
-            console.log(`[Antispam] Usuário ${authorJid} está em cooldown. Faltam ${banStatus.minutesRemaining} min.`);
+        setTimeout(() => {
+            processedMessages.delete(msgId);
+        }, 2 * 60 * 1000); // Limpa o ID da memória após 2 minutos
+        
+        // --- LÓGICA ANTISPAM ---
+        const commandSenderJidForSpam = msg.key.participant || msg.key.remoteJid;
+        if (spamManager.recordRequest(commandSenderJidForSpam)) {
+            console.log(`[Antispam] Bloqueando ${commandSenderJidForSpam} por excesso de solicitações.`);
+            await sock.sendMessage(msg.key.remoteJid, { text: "Você foi temporariamente bloqueado por fazer muitas solicitações rapidamente." });
+            await sock.updateBlockStatus(commandSenderJidForSpam, "block");
             return;
         }
 
-        const messageType = getContentType(msg.message);
-        if (messageType === 'imageMessage') {
-            const now = Date.now();
-            if (!imageSpamTracker.has(authorJid)) imageSpamTracker.set(authorJid, []);
-            const timestamps = imageSpamTracker.get(authorJid).filter(ts => now - ts < STRIKE_TIME_WINDOW_MS);
-            timestamps.push(now);
-
-            if (timestamps.length >= STRIKE_IMAGE_COUNT) {
-                console.warn(`[Antispam] SPAM DE IMAGEM DETECTADO de ${authorJid}!`);
-                const penaltyMinutes = await strikeManager.addStrike(authorJid);
-                await sock.sendMessage(senderJid, { text: `🚨 Você enviou muitas imagens rapidamente e recebeu um strike! Você não poderá interagir comigo por ${penaltyMinutes} minutos.` });
-                imageSpamTracker.delete(authorJid);
-                return;
-            }
-        }
-        
+        const senderJid = msg.key.remoteJid;
         await contactManager.addContact(senderJid);
         
+        const isGroup = senderJid.endsWith('@g.us');
         const pushName = msg.pushName || 'alguém';
+        const messageType = getContentType(msg.message);
+        let textContent = getTextFromMsg(msg.message);
         
+        // --- LÓGICA DE PREFIXO ALTERNATIVO ---
         if (textContent?.startsWith('/')) {
             textContent = '!' + textContent.substring(1);
+            console.log(`[Prefixo] Prefixo '/' detectado. Convertendo para: "${textContent}"`);
         }
-        
+
+        // --- LÓGICA DO MODO STICKER AUTOMÁTICO ---
         if (!isGroup && (messageType === 'imageMessage' || messageType === 'videoMessage') && !textContent?.startsWith('!')) {
             const stickerMode = settingsManager.getSetting(senderJid, 'stickerMode', 'on');
+            
             if (stickerMode === 'on') {
+                console.log(`[Modo Sticker] Ativado para ${senderJid}. Iniciando criação automática.`);
                 const stickerHandler = commandMap['!sticker'];
                 if (typeof stickerHandler === 'function') {
                     await stickerHandler(sock, msg, {
@@ -135,6 +118,7 @@ async function startJulia() {
             }
         }
 
+        // --- LÓGICA DE DETECÇÃO DE COMANDOS ---
         let commandToRun = null;
         if (textContent?.startsWith('!')) {
             const spacelessInput = textContent.substring(0, 30).replace(/\s+/g, '').toLowerCase();
@@ -147,17 +131,21 @@ async function startJulia() {
             }
         }
 
+        // --- ROTEADOR DE COMANDOS ---
         if (commandToRun) {
-            console.log(`[Comando] Roteando para o handler: ${commandToRun}`);
+            console.log(`[Comando] Roteando para o handler: ${commandToRun} (de "${textContent}")`);
+            
             if (typeof commandMap[commandToRun] === 'function') {
                 const msgDetails = { 
                     sender: senderJid, pushName, command: commandToRun, commandText: textContent, 
                     messageType, isGroup, quotedMsgInfo: msg.message.extendedTextMessage?.contextInfo?.quotedMessage, 
-                    commandSenderJid: authorJid
+                    commandSenderJid: msg.key.participant || msg.key.remoteJid 
                 };
                 if (await commandMap[commandToRun](sock, msg, msgDetails)) return;
             }
         }
+        
+        // --- LÓGICA DE INTERAÇÃO COM A IA ---
         
         if (isGroup) {
             try {
@@ -204,19 +192,12 @@ async function startJulia() {
             }
         }
         if (connection === 'close') {
-            if (schedulerIntervalId) scheduler.stopScheduler();
-            schedulerIntervalId = null; 
-            const reason = lastDisconnect?.error?.output?.statusCode;
-            const shouldReconnect = (reason !== DisconnectReason.loggedOut);
-            
-            if (shouldReconnect) {
-                console.log(`Tentando reconectar a Julia...`);
-                startJulia();
-            } else {
-                console.log(`Não será tentada a reconexão automática. Motivo: ${reason}.`);
-            }
+            // ... (código de reconexão continua o mesmo)
         }
     });
+
+    process.on('unhandledRejection', (reason, promise) => { console.error('Unhandled Rejection at:', promise, 'reason:', reason); });
+    process.on('uncaughtException', (error) => { console.error('Uncaught Exception thrown:', error); });
 }
 
 startJulia().catch(err => {

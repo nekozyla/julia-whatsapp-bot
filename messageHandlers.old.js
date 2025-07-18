@@ -44,6 +44,7 @@ async function processAIResponse(sock, originalMsg, responseText, chatSession, c
             }
 
             if (targetMsg) {
+                console.log(`[IA-Comando] Alvo encontrado: Mensagem ${targetMsg.key.id}`);
                 const fakeMsgDetails = {
                     sender: senderJid, pushName, command: `!${commandAction.commandName}`,
                     commandText: `!${commandAction.commandName}`,
@@ -69,7 +70,7 @@ async function handleAnyMessage(sock, msg, chatSession, msgDetails, sessionManag
     if (text.toLowerCase() === '/limpar') {
         await clearSession(msgDetails.sender);
         await sock.sendMessage(msgDetails.sender, { text: "Seu histórico de conversa comigo foi limpo! ✨" }, { quoted: msg }); 
-        return;
+        return true;
     }
     
     let contextForAI = "[CONTEXTO: TEXTO]";
@@ -102,6 +103,7 @@ async function handleAnyMessage(sock, msg, chatSession, msgDetails, sessionManag
     } catch (error) {
         await sendJuliaError(sock, msgDetails.sender, msg, error);
     }
+    return true; 
 }
 
 module.exports = {
