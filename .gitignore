@@ -20,6 +20,7 @@ reminders.json
 contacts.json
 agreements.json
 groupSettings.json
+*.json
 
 # Pastas temporárias de mídia
 temp_memes/
