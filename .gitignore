@@ -17,7 +17,8 @@ pm2.log*
 auth_julia_whatsapp/
 whatsapp_julia_sessions/
 reminders.json
-*.json
+contacts.json
+agreements.json
 groupSettings.json
 
 # Pastas temporárias de mídia
