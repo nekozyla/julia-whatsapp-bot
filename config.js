@@ -11,7 +11,7 @@ const GEMINI_MODELS = [
 ];
 
 const JULIA_SYSTEM_PROMPT = process.env.JULIA_ROLE_PROMPT;
-const JULIA_INITIAL_GREETING = "Oi! Sou a Julia, sua assistente. Pronta para ajudar e conversar. Pode me chamar ou responder minhas mensagens em grupos. E adoro figurinhas e imagens! 😊";
+const JULIA_INITIAL_GREETING = "Oi! Sou a Julia, sua assistente. Pronta para ajudar e conversar. Pode me chamar ou responder minhas mensagens em grupos.";
 const INITIAL_CONTEXT = [
     { role: 'user', parts: [{ text: JULIA_SYSTEM_PROMPT }] },
     { role: 'model', parts: [{ text: JULIA_INITIAL_GREETING }] }
@@ -22,5 +22,21 @@ const ADMIN_JID = "5522992667333@s.whatsapp.net";
 const SPONTANEOUS_RESPONSE_CHANCE = 0.000;
 const DEFAULT_MAX_OUTPUT_TOKENS = 400;
 
-// Exporta a chave única e a nova lista de modelos
-module.exports = { GEMINI_API_KEY, GEMINI_MODELS, JULIA_SYSTEM_PROMPT, JULIA_INITIAL_GREETING, INITIAL_CONTEXT, SESSIONS_DIR, AUTH_FILE_PATH, ADMIN_JID, SPONTANEOUS_RESPONSE_CHANCE, DEFAULT_MAX_OUTPUT_TOKENS };
+// Novas variáveis para o Instaloader
+const INSTAGRAM_USERNAME = process.env.INSTAGRAM_USERNAME;
+const INSTAGRAM_PASSWORD = process.env.INSTAGRAM_PASSWORD;
+
+// Exporta todas as variáveis
+module.exports = { 
+    GEMINI_API_KEY, 
+    GEMINI_MODELS, 
+    JULIA_SYSTEM_PROMPT, 
+    JULIA_INITIAL_GREETING, 
+    INITIAL_CONTEXT, 
+    SESSIONS_DIR, 
+    AUTH_FILE_PATH, 
+    ADMIN_JID, 
+    DEFAULT_MAX_OUTPUT_TOKENS,
+    INSTAGRAM_USERNAME,
+    INSTAGRAM_PASSWORD
+};

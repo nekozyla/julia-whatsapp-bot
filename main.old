@@ -1,7 +1,8 @@
-// main.js (Versão sem "makeInMemoryStore" para contornar o erro de instalação)
+// main.js
 
 const { makeWASocket, useMultiFileAuthState, getContentType, DisconnectReason } = require('@whiskeysockets/baileys');
 const { Boom } = require('@hapi/boom');
+const qrcode = require('qrcode-terminal');
 const pino = require('pino');
 const fs = require('fs');
 const path = require('path');
@@ -15,12 +16,35 @@ const { getTextFromMsg } = require('./utils');
 const settingsManager = require('./groupSettingsManager');
 const contactManager = require('./contactManager');
 const strikeManager = require('./strikeManager');
+const broadcastManager = require('./broadcastManager');
 const agreementManager = require('./agreementManager');
 
 const processedMessages = new Set();
 const imageSpamTracker = new Map();
 const STRIKE_IMAGE_COUNT = 10;
 const STRIKE_TIME_WINDOW_MS = 10 * 1000;
+
+/**
+ * Tenta executar uma função assíncrona várias vezes.
+ * @param {Function} fn - A função a ser executada.
+ * @param {number} retries - O número máximo de tentativas.
+ * @param {number} delay - O atraso em milissegundos entre as tentativas.
+ */
+async function retry(fn, retries = 3, delay = 1000) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            return await fn();
+        } catch (error) {
+            console.error(`[Retry] Tentativa ${i + 1} de ${retries} falhou. Erro: ${error.message}`);
+            if (i === retries - 1) {
+                // Se for a última tentativa, joga o erro para ser tratado
+                throw error;
+            }
+            // Espera antes de tentar novamente
+            await new Promise(res => setTimeout(res, delay));
+        }
+    }
+}
 
 function loadCommands() {
     const commandMap = {};
@@ -34,6 +58,8 @@ function loadCommands() {
                 const handler = require(path.join(commandDir, file));
                 if (typeof handler === 'function') {
                     commandMap[commandName] = handler;
+                } else {
+                    console.warn(`[Comandos] O arquivo ${file} não exporta uma função e será ignorado.`);
                 }
             } catch (error) {
                 console.error(`[Comandos] Erro ao carregar o comando do arquivo ${file}:`, error);
@@ -42,22 +68,6 @@ function loadCommands() {
     } catch (error) {
         console.error("[Comandos] Erro ao ler a pasta de comandos:", error);
     }
-
-    try {
-        const aliases = require('./aliases.js');
-        let aliasCount = 0;
-        for (const alias in aliases) {
-            const originalCommand = aliases[alias];
-            if (commandMap[originalCommand]) {
-                commandMap[alias] = commandMap[originalCommand];
-                aliasCount++;
-            }
-        }
-        console.log(`[Alias] ${aliasCount} apelidos carregados com sucesso.`);
-    } catch (error) {
-        console.log("[Alias] Arquivo de apelidos (aliases.js) não encontrado.");
-    }
-    
     return commandMap;
 }
 
@@ -71,13 +81,7 @@ async function startJulia() {
     await agreementManager.loadAgreements();
     
     const { state, saveCreds } = await useMultiFileAuthState(config.AUTH_FILE_PATH);
-    
-    const sock = makeWASocket({
-        auth: state,
-        logger: pino({ level: 'warn' }),
-        browser: ['Julia Bot', 'Chrome', '20.0.0'],
-        // As opções 'store' e 'getMessage' foram removidas para evitar o erro.
-    });
+    const sock = makeWASocket({ auth: state, logger: pino({ level: 'warn' }) });
 
     sock.ev.on('creds.update', saveCreds);
 
@@ -91,10 +95,11 @@ async function startJulia() {
             const isGroup = senderJid.endsWith('@g.us');
             let textContent = getTextFromMsg(msg.message);
 
+            // 1. LÓGICA DE ACORDO DE USO
             if (!agreementManager.hasUserAgreed(authorJid)) {
                 const normalizedText = (textContent || '').replace(/\s+/g, '').toLowerCase();
                 if (normalizedText === '!concordo' || normalizedText === '/concordo') {
-                    // Deixa o roteador de comandos lidar
+                    // Deixa o roteador de comandos lidar com o !concordo
                 } else {
                     if (!isGroup) {
                         const agreementText = "👋 Olá! Antes de usar a Julia, você precisa concordar com os nossos termos de uso.\n\n1. Não use o bot para spam ou atividades ilegais.\n2. O bot salva seu ID de usuário para funcionalidades como lembretes e broadcast.\n3. O uso excessivo pode resultar em um bloqueio temporário.\n\nPara concordar e liberar todas as funções, digite:\n*/concordo*";
@@ -104,13 +109,18 @@ async function startJulia() {
                 }
             }
             
+            // 2. LÓGICA DE MENSAGEM DUPLICADA
             const msgId = msg.key.id;
             if (processedMessages.has(msgId)) return;
             processedMessages.add(msgId);
             setTimeout(() => { processedMessages.delete(msgId); }, 2 * 60 * 1000);
 
+            // 3. LÓGICA ANTISPAM
             const banStatus = strikeManager.getBanStatus(authorJid);
-            if (banStatus) return;
+            if (banStatus) {
+                console.log(`[Antispam] Usuário ${authorJid} está em cooldown. Faltam ${banStatus.minutesRemaining} min.`);
+                return;
+            }
 
             const messageType = getContentType(msg.message);
             if (messageType === 'imageMessage') {
@@ -169,7 +179,8 @@ async function startJulia() {
                         messageType, isGroup, quotedMsgInfo: msg.message.extendedTextMessage?.contextInfo?.quotedMessage, 
                         commandSenderJid: authorJid
                     };
-                    if (await commandMap[commandToRun](sock, msg, msgDetails)) return;
+                    await retry(() => commandMap[commandToRun](sock, msg, msgDetails));
+                    return;
                 }
             }
             
@@ -202,10 +213,10 @@ async function startJulia() {
 
             const msgDetailsForHandler = { sender: senderJid, pushName, currentMessageText: textContent, messageType };
             
-            await conversationalHandlers.handleAnyMessage(sock, msg, chatSession, msgDetailsForHandler, sessionManager, commandMap);
-            
+            await retry(() => conversationalHandlers.handleAnyMessage(sock, msg, chatSession, msgDetailsForHandler, sessionManager, commandMap));
+
         } catch (error) {
-            console.error("[Erro Final] A ação falhou:", error);
+            console.error("[Erro Final] Após todas as tentativas, a ação falhou:", error);
         }
     });
 
@@ -213,10 +224,11 @@ async function startJulia() {
         const { connection, lastDisconnect, qr } = update;
         if (qr) {
             console.log('📲 Escaneie o QR code abaixo para conectar:\n');
-            require('qrcode-terminal').generate(qr, { small: true });
+            qrcode.generate(qr, { small: true });
         }
         if (connection === 'open') {
             console.log('✅ Julia conectada ao WhatsApp!');
+	    broadcastManager.initialize(sock);
             if (!schedulerIntervalId) {
                 scheduler.initializeScheduler(sock, commandMap);
             }
@@ -235,9 +247,13 @@ async function startJulia() {
             }
         }
     });
+
+    process.on('unhandledRejection', (reason, promise) => { console.error('Unhandled Rejection at:', promise, 'reason:', reason); });
+    process.on('uncaughtException', (error) => { console.error('Uncaught Exception thrown:', error); });
 }
 
 startJulia().catch(err => {
     console.error("Erro fatal ao iniciar Julia:", err);
     process.exit(1); 
 });
+
