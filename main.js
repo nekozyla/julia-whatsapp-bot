@@ -11,16 +11,32 @@ const config = require('./config');
 const sessionManager = require('./sessionManager');
 const conversationalHandlers = require('./messageHandlers');
 const scheduler = require('./scheduler');
+const fiscalScheduler = require('./fiscalScheduler');
 const { getTextFromMsg } = require('./utils');
 const settingsManager = require('./groupSettingsManager');
 const contactManager = require('./contactManager');
 const strikeManager = require('./strikeManager');
 const agreementManager = require('./agreementManager');
+const tomatoAnalyzer = require('./tomatoAnalyzer');
+const systemStateManager = require('./systemStateManager');
+const donationManager = require('./donationManager');
 
 const processedMessages = new Set();
 const imageSpamTracker = new Map();
 const STRIKE_IMAGE_COUNT = 10;
 const STRIKE_TIME_WINDOW_MS = 10 * 1000;
+
+async function retry(fn, retries = 3, delay = 1000) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            return await fn();
+        } catch (error) {
+            console.error(`[Retry] Tentativa ${i + 1} de ${retries} falhou. Erro: ${error.message}`);
+            if (i === retries - 1) throw error;
+            await new Promise(res => setTimeout(res, delay));
+        }
+    }
+}
 
 function loadCommands() {
     const commandMap = {};
@@ -32,9 +48,7 @@ function loadCommands() {
             try {
                 const commandName = `!${path.basename(file, '.js')}`;
                 const handler = require(path.join(commandDir, file));
-                if (typeof handler === 'function') {
-                    commandMap[commandName] = handler;
-                }
+                if (typeof handler === 'function') commandMap[commandName] = handler;
             } catch (error) {
                 console.error(`[Comandos] Erro ao carregar o comando do arquivo ${file}:`, error);
             }
@@ -62,6 +76,7 @@ function loadCommands() {
 }
 
 let schedulerIntervalId = null; 
+let fiscalSchedulerIntervalId = null;
 
 async function startJulia() {
     const commandMap = loadCommands();
@@ -69,6 +84,7 @@ async function startJulia() {
     await contactManager.loadContacts();
     await sessionManager.loadAllPersistedSessions();
     await agreementManager.loadAgreements();
+    await systemStateManager.loadState();
     
     const { state, saveCreds } = await useMultiFileAuthState(config.AUTH_FILE_PATH);
     
@@ -91,6 +107,30 @@ async function startJulia() {
             const isGroup = senderJid.endsWith('@g.us');
             let textContent = getTextFromMsg(msg.message);
 
+            if (systemStateManager.isMaintenanceMode() && authorJid !== config.ADMIN_JID) {
+                return;
+            }
+
+            if (isGroup && textContent) {
+                const tomatoMode = settingsManager.getSetting(senderJid, 'tomatoMode', 'off');
+                if (tomatoMode === 'on') {
+                    tomatoAnalyzer.analyzeMessage(textContent).then(isProblematic => {
+                        if (isProblematic) {
+                            sock.sendMessage(senderJid, { react: { text: '🍅', key: msg.key } }).catch(e => {});
+                        }
+                    });
+                }
+            }
+
+            if (isGroup) {
+                const memeMode = settingsManager.getSetting(senderJid, 'memeMode', 'off');
+                if (memeMode === 'on' && !textContent?.startsWith('!') && !textContent?.startsWith('/')) {
+                    const { memeEmojis } = require('./commands/modomeme.js');
+                    const randomEmoji = memeEmojis[Math.floor(Math.random() * memeEmojis.length)];
+                    sock.sendMessage(senderJid, { react: { text: randomEmoji, key: msg.key } }).catch(e => {});
+                }
+            }
+            
             if (!agreementManager.hasUserAgreed(authorJid)) {
                 const normalizedText = (textContent || '').replace(/\s+/g, '').toLowerCase();
                 if (normalizedText === '!concordo' || normalizedText === '/concordo') {
@@ -118,7 +158,6 @@ async function startJulia() {
                 if (!imageSpamTracker.has(authorJid)) imageSpamTracker.set(authorJid, []);
                 const timestamps = imageSpamTracker.get(authorJid).filter(ts => now - ts < STRIKE_TIME_WINDOW_MS);
                 timestamps.push(now);
-
                 if (timestamps.length >= STRIKE_IMAGE_COUNT) {
                     const penaltyMinutes = await strikeManager.addStrike(authorJid);
                     await sock.sendMessage(senderJid, { text: `🚨 Você enviou muitas imagens rapidamente e recebeu um strike! Você não poderá interagir comigo por ${penaltyMinutes} minutos.` });
@@ -165,11 +204,30 @@ async function startJulia() {
                 console.log(`[Comando] Roteando para o handler: ${commandToRun}`);
                 if (typeof commandMap[commandToRun] === 'function') {
                     const msgDetails = { 
-                        sender: senderJid, pushName, command: commandToRun, commandText: textContent, 
-                        messageType, isGroup, quotedMsgInfo: msg.message.extendedTextMessage?.contextInfo?.quotedMessage, 
-                        commandSenderJid: authorJid
+                        sender: senderJid, 
+                        pushName, 
+                        command: commandToRun, 
+                        commandText: textContent, 
+                        messageType, 
+                        isGroup, 
+                        quotedMsgInfo: msg.message.extendedTextMessage?.contextInfo?.quotedMessage, 
+                        commandSenderJid: authorJid,
+                        isSuperAdmin: authorJid === config.ADMIN_JID
                     };
-                    if (await commandMap[commandToRun](sock, msg, msgDetails)) return;
+                    if (await commandMap[commandToRun](sock, msg, msgDetails)) {
+                        if (donationManager.shouldSendDonationMessage(authorJid)) {
+                            setTimeout(async () => {
+                                try {
+                                    const donationMessage = "Olá! 👋 Sou a Julia, um projeto mantido com muito carinho pela Emily. Se você gosta do meu trabalho e quer ajudar a manter-me online, considere fazer uma doação. Qualquer valor ajuda a pagar os custos do servidor!\n\n✨ Chave PIX (E-mail):\n`emilymedeiros0222@gmail.com`\n\nSiga o nosso canal para novidades:\nhttps://whatsapp.com/channel/0029Vb6C238CxoAwXrkEXe1E\n\nMuito obrigada pelo seu apoio! ❤️";
+                                    await sock.sendMessage(authorJid, { text: donationMessage });
+                                    donationManager.recordDonationMessageSent(authorJid);
+                                } catch (e) {
+                                    console.error("[Donation Manager] Falha ao enviar mensagem de doação:", e);
+                                }
+                            }, 15 * 1000);
+                        }
+                        return;
+                    }
                 }
             }
             
@@ -218,12 +276,17 @@ async function startJulia() {
         if (connection === 'open') {
             console.log('✅ Julia conectada ao WhatsApp!');
             if (!schedulerIntervalId) {
-                scheduler.initializeScheduler(sock, commandMap);
+                schedulerIntervalId = scheduler.initializeScheduler(sock, commandMap);
+            }
+            if (!fiscalSchedulerIntervalId) {
+                fiscalSchedulerIntervalId = fiscalScheduler.initializeFiscalScheduler(sock);
             }
         }
         if (connection === 'close') {
             if (schedulerIntervalId) scheduler.stopScheduler();
+            if (fiscalSchedulerIntervalId) fiscalScheduler.stopFiscalScheduler();
             schedulerIntervalId = null; 
+            fiscalSchedulerIntervalId = null;
             const reason = lastDisconnect?.error?.output?.statusCode;
             const shouldReconnect = (reason !== DisconnectReason.loggedOut);
             

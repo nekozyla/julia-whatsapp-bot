@@ -1,10 +1,11 @@
 // sessionManager.js
 const fs = require('fs').promises;
 const path = require('path');
-// --- LINHA CORRIGIDA/ADICIONADA ---
-const { SESSIONS_DIR, INITIAL_CONTEXT, DEFAULT_MAX_OUTPUT_TOKENS } = require('./config');
-// ------------------------------------
+const { SESSIONS_DIR, JULIA_INITIAL_GREETING, DEFAULT_MAX_OUTPUT_TOKENS } = require('./config');
 const { model } = require('./geminiClient'); 
+const settingsManager = require('./groupSettingsManager');
+const personalities = require('./personalities');
+
 const sessions = {}; 
 
 async function saveSessionHistory(sessionKey, history) {
@@ -37,8 +38,19 @@ async function loadSessionHistory(sessionKey) {
 
 async function getOrCreateChatForSession(sessionKey) {
     if (!sessions[sessionKey]) {
+        // 1. Determina a personalidade para este chat
+        const personalityName = settingsManager.getSetting(sessionKey, 'personality', 'julia'); // Padrão é 'julia'
+        const systemPrompt = personalities[personalityName] || personalities.julia;
+        console.log(`[Sessão] A criar nova sessão para ${sessionKey} com a personalidade: ${personalityName}`);
+
+        // 2. Constrói o contexto inicial com a personalidade correta
+        const dynamicInitialContext = [
+            { role: 'user', parts: [{ text: systemPrompt }] },
+            { role: 'model', parts: [{ text: JULIA_INITIAL_GREETING }] }
+        ];
+
         const loadedHistory = await loadSessionHistory(sessionKey);
-        const historyToUse = loadedHistory || JSON.parse(JSON.stringify(INITIAL_CONTEXT));
+        const historyToUse = loadedHistory || JSON.parse(JSON.stringify(dynamicInitialContext));
         
         sessions[sessionKey] = model.startChat({
             history: historyToUse, 
@@ -47,7 +59,7 @@ async function getOrCreateChatForSession(sessionKey) {
 
         if (!loadedHistory) {
             await saveSessionHistory(sessionKey, historyToUse); 
-            console.log(`[Persistência] Novo histórico iniciado e salvo para ${sessionKey}.`);
+            console.log(`[Persistência] Novo histórico com personalidade '${personalityName}' iniciado e salvo para ${sessionKey}.`);
         }
     }
     return sessions[sessionKey];
@@ -68,7 +80,7 @@ async function loadAllPersistedSessions() {
 }
 
 async function clearSession(sessionKey) {
-    console.log(`[Sessão] Limpando sessão para ${sessionKey}`);
+    console.log(`[Sessão] A limpar sessão para ${sessionKey}`);
     delete sessions[sessionKey];
     try {
         const filePath = path.join(SESSIONS_DIR, `${sessionKey}.json`);

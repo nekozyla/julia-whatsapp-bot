@@ -3,93 +3,109 @@
 async function handleHelpCommand(sock, msg, msgDetails) {
     const { sender } = msgDetails;
 
-    // Monta a mensagem de ajuda completa usando a formatação do WhatsApp
     const helpText = `
 *Guia de Comandos da Julia* ✨
 
-Desenvolvido por: 
-
-Instagram: @nekozyla
-Twitter:@nekozylajs
-
-Aqui está uma lista de tudo que eu posso fazer!
+Aqui está uma lista completa de tudo que eu posso fazer!
 
 *--- 🎨 Mídia e Criação ---*
 
 *!sticker [opções]*
-_Cria uma figurinha a partir de uma imagem ou GIF. Responda a uma mídia ou envie na legenda._
+_Cria uma figurinha a partir de uma imagem ou GIF._
+- Opção \`quadrado\`: Cria uma figurinha quadrada (apenas para imagens).
+- Opção \`pack:"nome"\`: Define o nome do pacote.
+Ex: \`!sticker quadrado pack:"Memes"\`
 
-*Opções disponíveis:*
-- \`pack:"nome_do_pacote"\`
-  _Define o nome do pacote. Use aspas._
-  Ex: \`!sticker pack:"Memes_da_Turma"\`
-
-- \`quadrado\`
-  _Cria uma figurinha quadrada (apenas para imagens). Vídeos/GIFs já são sempre quadrados._
-  Ex: \`!sticker quadrado\`
-
+*!renomear [opções]*
+_Renomeia o pacote e/ou autor de uma figurinha respondida._
+Ex: \`!renomear pack:"Meu Pack" autor:"Emily"\`
 
 *!toimage*
-_Converte uma figurinha (sticker) de volta para uma imagem._
-Ex: (responda a uma figurinha com !toimage)
+_Converte uma figurinha de volta para uma imagem._
+Ex: (responda a uma figurinha com \`!toimage\`)
+
+*!brat [texto]*
+_Cria uma figurinha no estilo "Brat" com o seu texto._
+Ex: \`!brat club classics\`
 
 *!patpat*
 _Cria um meme 'pat-pat' com uma imagem._
-Ex: (envie uma imagem com a legenda !patpat)
+Ex: (responda a uma imagem com \`!patpat\`)
+
+
+*--- 📥 Downloads ---*
+
+*!audio <link>*
+_Baixa o áudio de um link (YouTube, Spotify, etc.)._
+Ex: \`!audio https://youtu.be/...\`
+
+*!video <link>*
+_Baixa um vídeo de um link (YouTube, etc.)._
+Ex: \`!video https://youtu.be/...\`
 
 *--- 🎉 Diversão e Interação ---*
 
 *!top10 [assunto]*
-_Cria um ranking aleatório com 10 pessoas do grupo sobre um assunto._
+_Cria um ranking aleatório com 10 pessoas do grupo._
 Ex: \`!top10 mais legais do grupo\`
 
 *!shipp [@pessoa1] [@pessoa2]*
-_Calcula a compatibilidade entre duas pessoas. Se marcar só uma, o 'ship' é com você!_
-Ex: \`!shipp @Amigo\` ou \`!shipp @Amigo1 @Amiga2\`
+_Calcula a compatibilidade entre duas pessoas._
+Ex: \`!shipp @Amigo1 @Amiga2\`
 
-*!gadometro [@pessoa]*
+*!gado [@pessoa]*
 _Mede o seu nível de 'gado' ou o de alguém que você marcar._
-Ex: \`!gado @Amigo\` ou apenas \`!gado\`
+Ex: \`!gado @Amigo\`
 
 
-*--- ⚙️ Configurações e Modos ---*
+*--- 🤖 IA e Utilitários ---*
 
 *!ia [on/off]*
-_Ativa ou desativa minhas funções de conversa com Inteligência Artificial neste chat._
+_Ativa ou desativa a minha personalidade de conversa neste chat._
 Ex: \`!ia on\`
 
-*!modosticker [on/off]*
-_No privado, ativa/desativa a conversão automática de toda imagem para figurinha._
-Ex: \`!modosticker off\`
+*!persona [nome]*
+_Muda a minha personalidade. Opções: julia, emilia, maria._
+Ex: \`!personalidade emilia\`
 
-*!modotranscricao [on/off]*
-_Em grupos, ativa/desativa a transcrição automática de todos os áudios._
-Ex: \`!modotranscricao on\`
+*!pergunta [pergunta]*
+_Faz uma pergunta direta à minha base de conhecimento, sem a minha persona._
+Ex: \`!ask qual a capital da Mongólia\`
 
-*!chato*
-_Bloqueia você das brincadeiras e do uso de comandos neste grupo._
-
-*!voltar*
-_Remove seu bloqueio das brincadeiras e comandos do grupo._
-
-
-*--- 🛠️ Utilidades ---*
+*!pesquisa [pergunta]*
+_Realiza uma busca na internet e resume o resultado._
+Ex: \`!pesquisa sobre buracos negros\`
 
 *!transcrever*
 _Transcreve o conteúdo de uma mensagem de áudio respondida._
-Ex: (responda a um áudio com !transcrever)
-
-*!pesquisa [pergunta]*
-_Realiza uma busca na internet e resume o resultado de forma objetiva._
-Ex: \`!pesquisa me explique sobre buracos negros\`
 
 
 *--- 👑 Comandos de Admin ---*
-_(Apenas o número definido como admin pode usar)_
 
 *!todos [mensagem]*
 _Menciona todos os membros do grupo._
-Ex: \`!todos Reunião importante amanhã!\`
+
+*!remover [@pessoa]*
+_Remove um membro do grupo._
+
+
+*--- ⚙️ Modos de Grupo ---*
+_(Podem ser ativados por admins)_
+
+*!modosticker [on/off]*
+_No privado, converte toda imagem em figurinha._
+
+*!modomeme [on/off]*
+_Reage a todas as mensagens com emojis aleatórios._
+
+*!modotomate [on/off]*
+_Reage com um 🍅 a mensagens consideradas polémicas._
+
+*!modotranscricao [on/off]*
+_Transcreve todos os áudios enviados no chat._
+
+*!fiscalizar [on/off]*
+_Envia uma figurinha de "fiscalização" aleatoriamente no grupo._
 `;
 
     try {
@@ -98,7 +114,7 @@ Ex: \`!todos Reunião importante amanhã!\`
         console.error("[Help] Erro ao enviar a mensagem de ajuda:", error);
     }
 
-    return true; // Indica que o comando foi processado
+    return true;
 }
 
 module.exports = handleHelpCommand;

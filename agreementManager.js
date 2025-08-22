@@ -3,11 +3,8 @@ const fs = require('fs').promises;
 const path = require('path');
 
 const AGREEMENT_FILE_PATH = path.join(__dirname, 'agreements.json');
-let agreedUsersCache = new Set(); // Cache para acesso rápido
+let agreedUsersCache = new Set();
 
-/**
- * Carrega a lista de usuários que já concordaram com os termos.
- */
 async function loadAgreements() {
     try {
         const data = await fs.readFile(AGREEMENT_FILE_PATH, 'utf-8');
@@ -23,9 +20,6 @@ async function loadAgreements() {
     }
 }
 
-/**
- * Salva a lista de usuários que concordaram.
- */
 async function saveAgreements() {
     try {
         await fs.writeFile(AGREEMENT_FILE_PATH, JSON.stringify([...agreedUsersCache]));
@@ -34,10 +28,6 @@ async function saveAgreements() {
     }
 }
 
-/**
- * Marca um usuário como tendo concordado com os termos.
- * @param {string} jid - O JID do usuário.
- */
 async function setUserAsAgreed(jid) {
     if (!agreedUsersCache.has(jid)) {
         agreedUsersCache.add(jid);
@@ -47,10 +37,19 @@ async function setUserAsAgreed(jid) {
 }
 
 /**
- * Verifica se um usuário já concordou com os termos.
+ * Remove o acordo de um usuário.
  * @param {string} jid - O JID do usuário.
- * @returns {boolean}
  */
+async function removeAgreement(jid) {
+    if (agreedUsersCache.has(jid)) {
+        agreedUsersCache.delete(jid);
+        await saveAgreements();
+        console.log(`[Agreement] Acordo removido para o usuário: ${jid}`);
+        return true;
+    }
+    return false;
+}
+
 function hasUserAgreed(jid) {
     return agreedUsersCache.has(jid);
 }
@@ -58,5 +57,7 @@ function hasUserAgreed(jid) {
 module.exports = {
     loadAgreements,
     setUserAsAgreed,
-    hasUserAgreed
+    hasUserAgreed,
+    removeAgreement // Exporta a nova função
 };
+

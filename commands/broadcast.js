@@ -2,78 +2,81 @@
 const { ADMIN_JID } = require('../config');
 const { sendJuliaError } = require('../utils');
 const contactManager = require('../contactManager');
-const agreementManager = require('../agreementManager');
-const broadcastManager = require('../broadcastManager');
+
+// Função para criar um atraso (sleep)
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function handleBroadcastCommand(sock, msg, msgDetails) {
     const { sender, command, commandText, commandSenderJid } = msgDetails;
 
-    if (commandSenderJid !== ADMIN_JID) return true;
-
-    const subcommand = (commandText.split(' ')[1] || '').toLowerCase();
-
-    // Subcomando para ver o status
-    if (subcommand === 'status') {
-        const status = broadcastManager.getStatus();
-        let statusText = `*Status da Transmissão:*\n\n- *Estado:* ${status.status}\n`;
-        if (status.status !== 'idle') {
-            statusText += `- *Mensagem:* ${status.message.substring(0, 50)}...\n`;
-            statusText += `- *Progresso:* ${status.currentIndex} / ${status.contacts.length}\n`;
-            statusText += `- *Sucessos:* ${status.successCount}\n- *Falhas:* ${status.errorCount}`;
-        }
-        await sock.sendMessage(sender, { text: statusText }, { quoted: msg });
-        return true;
+    if (commandSenderJid !== ADMIN_JID) {
+        return true; // Ignora silenciosamente
     }
 
-    // Subcomando para pausar
-    if (subcommand === 'pausar') {
-        if (await broadcastManager.pauseBroadcast()) {
-            await sock.sendMessage(sender, { text: "⏸️ Transmissão pausada." }, { quoted: msg });
-        } else {
-            await sock.sendMessage(sender, { text: "Nenhuma transmissão em andamento para pausar." }, { quoted: msg });
-        }
-        return true;
-    }
+    const args = commandText.substring(command.length).trim().split(' ');
+    const broadcastType = args.shift()?.toLowerCase(); // Pega o primeiro argumento (pv, grupos, todos)
+    const messageToSend = args.join(' ');
 
-    // Subcomando para continuar
-    if (subcommand === 'continuar') {
-        if (await broadcastManager.resumeBroadcast()) {
-            await sock.sendMessage(sender, { text: "▶️ Transmissão retomada." }, { quoted: msg });
-        } else {
-            await sock.sendMessage(sender, { text: "Nenhuma transmissão pausada para continuar." }, { quoted: msg });
-        }
-        return true;
-    }
-    
-    // Subcomando para cancelar
-    if (subcommand === 'cancelar') {
-        if (await broadcastManager.cancelBroadcast()) {
-            await sock.sendMessage(sender, { text: "❌ Transmissão cancelada e fila limpa." }, { quoted: msg });
-        } else {
-            await sock.sendMessage(sender, { text: "Nenhuma transmissão para cancelar." }, { quoted: msg });
-        }
-        return true;
-    }
+    const usageText = "Uso incorreto. Especifique o alvo da transmissão:\n\n`!broadcast pv [mensagem]` (privados)\n`!broadcast grupos [mensagem]` (grupos)\n`!broadcast todos [mensagem]` (ambos)";
 
-    // Lógica para iniciar uma nova transmissão
-    const messageToSend = commandText.substring(command.length).trim();
-    if (!messageToSend) {
-        await sock.sendMessage(sender, { text: "Uso: `!broadcast [mensagem]`\nSubcomandos: `status`, `pausar`, `continuar`, `cancelar`" }, { quoted: msg });
+    if (!['pv', 'grupos', 'todos'].includes(broadcastType) || !messageToSend) {
+        await sock.sendMessage(sender, { text: usageText }, { quoted: msg });
         return true;
     }
 
     try {
-        const allContacts = contactManager.getContacts();
-        const agreedContacts = allContacts.filter(jid => agreementManager.hasUserAgreed(jid) && jid !== ADMIN_JID);
+        let contactsToBroadcast = [];
+        let groupCount = 0;
+        let privateCount = 0;
 
-        if (agreedContacts.length === 0) {
-            await sock.sendMessage(sender, { text: "Nenhum contato que concordou com os termos foi encontrado para a transmissão." }, { quoted: msg });
+        // Monta a lista de destinatários com base no tipo
+        if (broadcastType === 'pv' || broadcastType === 'todos') {
+            const privateContacts = contactManager.getContacts().filter(jid => jid !== ADMIN_JID);
+            contactsToBroadcast.push(...privateContacts);
+            privateCount = privateContacts.length;
+        }
+        if (broadcastType === 'grupos' || broadcastType === 'todos') {
+            const allGroups = await sock.groupFetchAllParticipating();
+            const groupJids = Object.keys(allGroups);
+            contactsToBroadcast.push(...groupJids);
+            groupCount = groupJids.length;
+        }
+
+        // Remove duplicatas, caso um grupo esteja na lista de contatos
+        contactsToBroadcast = [...new Set(contactsToBroadcast)];
+
+        if (contactsToBroadcast.length === 0) {
+            await sock.sendMessage(sender, { text: "Não encontrei nenhuns destinatários para enviar a transmissão." }, { quoted: msg });
             return true;
         }
 
-        const total = await broadcastManager.startBroadcast(messageToSend, agreedContacts);
-        const confirmationText = `✅ Nova transmissão iniciada para ${total} contato(s).\n\nO envio começará em breve. Use \`!broadcast status\` para ver o progresso.`;
-        await sock.sendMessage(sender, { text: confirmationText }, { quoted: msg });
+        const confirmationText = `✅ Transmissão iniciada para ${privateCount} contacto(s) privado(s) e ${groupCount} grupo(s).\n\nTotal: ${contactsToBroadcast.length} destinatários.\nEste processo será lento para proteger o seu número. Avisarei quando terminar.`;
+        await sock.sendMessage(sender, { text: confirmationText });
+
+        console.log(`[Broadcast] A iniciar envio para ${contactsToBroadcast.length} destinatários. Mensagem: "${messageToSend}"`);
+
+        let successCount = 0;
+        let errorCount = 0;
+
+        for (let i = 0; i < contactsToBroadcast.length; i++) {
+            const jid = contactsToBroadcast[i];
+            try {
+                // Atraso aleatório curto entre cada mensagem
+                const shortDelay = Math.floor(Math.random() * 20000) + 10000; // 10-30 segundos
+                console.log(`[Broadcast] A aguardar ${shortDelay / 1000}s antes de enviar para ${jid} (${i + 1}/${contactsToBroadcast.length})`);
+                await sleep(shortDelay);
+
+                await sock.sendMessage(jid, { text: messageToSend });
+                successCount++;
+
+            } catch (error) {
+                console.error(`[Broadcast] Falha ao enviar para ${jid}:`, error);
+                errorCount++;
+            }
+        }
+        
+        const reportText = `🏁 Transmissão concluída!\n\n- *Enviadas com sucesso:* ${successCount}\n- *Falhas:* ${errorCount}`;
+        await sock.sendMessage(sender, { text: reportText });
 
     } catch (error) {
         await sendJuliaError(sock, sender, msg, error);
@@ -83,3 +86,4 @@ async function handleBroadcastCommand(sock, msg, msgDetails) {
 }
 
 module.exports = handleBroadcastCommand;
+

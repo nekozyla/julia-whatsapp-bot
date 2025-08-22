@@ -3,56 +3,50 @@ const fs = require('fs').promises;
 const path = require('path');
 
 const CONTACTS_FILE_PATH = path.join(__dirname, 'contacts.json');
-let contactsCache = new Set(); // Usamos um Set para garantir que não haja JIDs duplicados
+let contactsCache = new Set();
 
-/**
- * Carrega a lista de contatos do arquivo para a memória.
- */
 async function loadContacts() {
     try {
         const data = await fs.readFile(CONTACTS_FILE_PATH, 'utf-8');
         const loadedJids = JSON.parse(data);
         contactsCache = new Set(loadedJids);
-        console.log(`[Contacts] ${contactsCache.size} contatos carregados.`);
+        console.log(`[Contacts] ${contactsCache.size} contactos carregados.`);
     } catch (error) {
         if (error.code === 'ENOENT') {
-            console.log('[Contacts] Arquivo de contatos não encontrado, iniciando um novo.');
-            contactsCache = new Set();
-        } else {
-            console.error('[Contacts] Erro ao carregar contatos:', error);
+            console.log('[Contacts] Arquivo de contactos não encontrado, a lista de broadcast estará vazia.');
         }
     }
 }
 
-/**
- * Salva a lista de contatos da memória para o arquivo.
- */
 async function saveContacts() {
     try {
-        const dataToSave = JSON.stringify([...contactsCache], null, 2);
-        await fs.writeFile(CONTACTS_FILE_PATH, dataToSave);
+        await fs.writeFile(CONTACTS_FILE_PATH, JSON.stringify([...contactsCache]));
     } catch (error) {
-        console.error('[Contacts] Erro ao salvar contatos:', error);
+        console.error('[Contacts] Erro ao salvar contactos:', error);
     }
 }
 
-/**
- * Adiciona um novo JID à lista se ele for um usuário válido e ainda não existir.
- * @param {string} jid - O JID do contato a ser adicionado.
- */
 async function addContact(jid) {
-    // Garante que estamos salvando apenas JIDs de usuários privados e não grupos
     if (jid.endsWith('@s.whatsapp.net') && !contactsCache.has(jid)) {
-        console.log(`[Contacts] Novo contato adicionado: ${jid}`);
         contactsCache.add(jid);
         await saveContacts();
     }
 }
 
 /**
- * Retorna a lista de todos os contatos salvos.
- * @returns {string[]}
+ * Remove um JID da lista de contatos.
+ * @param {string} jid - O JID do contato a ser removido.
  */
+async function removeContact(jid) {
+    if (contactsCache.has(jid)) {
+        contactsCache.delete(jid);
+        await saveContacts();
+        console.log(`[Contacts] Contacto removido: ${jid}`);
+        return true;
+    }
+    return false;
+}
+
 function getContacts() {
     return [...contactsCache];
 }
@@ -60,5 +54,7 @@ function getContacts() {
 module.exports = {
     loadContacts,
     addContact,
-    getContacts
+    getContacts,
+    removeContact // Exporta a nova função
 };
+
