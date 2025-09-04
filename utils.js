@@ -1,91 +1,158 @@
 // utils.js
+const { exec, spawn } = require('child_process');
 const fs = require('fs').promises;
+const { tmpdir } = require('os');
 const path = require('path');
-const { exec } = require('child_process');
-const crypto = require('crypto');
-const geminiClient = require('./geminiClient');
+const ffmpeg = require('ffmpeg-static');
+const ffprobe = require('ffprobe-static');
 
-function getTextFromMsg(messageObject) {
-    if (!messageObject) return null;
-    return messageObject.conversation || 
-           messageObject.extendedTextMessage?.text || 
-           messageObject.imageMessage?.caption || 
-           messageObject.videoMessage?.caption || null;
-}
+/**
+ * Envia uma mensagem de erro padronizada para o chat e loga o erro completo no console.
+ * @param {any} sock O socket da conexão Baileys.
+ * @param {string} chatJid O JID do chat para onde enviar o erro.
+ * @param {any} originalMsg O objeto da mensagem original para responder.
+ * @param {Error} error O objeto do erro que ocorreu.
+ */
+async function sendJuliaError(sock, chatJid, originalMsg, error) {
+    console.error(`[Erro Handler para ${chatJid}]: ${error.message} (Status: ${error.status || 'N/A'})`);
+    console.error(error.stack); // Loga o stack completo para depuração
 
-async function sendJuliaError(sock, sender, originalMsg, specificError) {
-    console.error(`[Erro Handler para ${sender}]:`, specificError.message ? `${specificError.message} (Status: ${specificError.status || 'N/A'})` : specificError);
-    let friendlyError = 'Ocorreu um erro aqui 😖 tenta de novo depois';
-    
-    if (specificError?.message) {
-        if (specificError.message.includes('429')) {
-            friendlyError = 'Ops, falei demais e preciso de uma pausa! Atingi meu limite de interações. Já estou resolvendo, tente de novo em um instante. 😊';
-            geminiClient.switchToNextModel();
-        } else if (specificError.message.includes('503')) {
-            friendlyError = 'O modelo de IA parece estar sobrecarregado no momento. Por favor, tente novamente em alguns instantes. 🙏';
-        } else {
-            // Usa a mensagem de erro da própria exceção se for mais descritiva
-            friendlyError = `😕 Tive um probleminha: ${specificError.message}`;
+    let friendlyMessage = `😕 Tive um probleminha: ${error.message}`;
+
+    // Personaliza a mensagem para erros comuns da API do Gemini
+    if (error.message && error.message.includes('GoogleGenerativeAI Error')) {
+        if (error.message.includes('500 Internal Server Error')) {
+            // Ignora o envio para o usuário, pois é um problema temporário do servidor do Google
+            return;
         }
+        if (error.message.includes('API key not valid')) {
+            friendlyMessage = "🔑 Minha chave de API para o Gemini não é válida. A minha criadora precisa de verificar o ficheiro `.env`.";
+        } else if (error.message.includes('quota')) {
+            friendlyMessage = " overworked. 🥵 Atingi o meu limite de pedidos à IA por enquanto. Por favor, tente novamente mais tarde.";
+        }
+    } else if (error.message.includes('FFMPEG')) {
+        friendlyMessage = "😕 Tive um problema ao processar o ficheiro de mídia. Ele pode estar num formato que eu não consigo ler.";
     }
+
     try {
-        await sock.sendMessage(sender, { text: friendlyError }, { quoted: originalMsg });
-    } catch (sendErr) {
-        console.error(`[Erro Handler] Falha ao enviar mensagem de erro para ${sender}:`, sendErr);
+        await sock.sendMessage(chatJid, { text: friendlyMessage }, { quoted: originalMsg });
+    } catch (sendError) {
+        console.error(`[Erro Handler] Falha ao enviar a mensagem de erro para ${chatJid}:`, sendError);
     }
 }
 
 /**
- * Converte um buffer de áudio para um formato WAV padrão, de forma mais robusta.
- * @param {Buffer} inputBuffer - O buffer de áudio original.
- * @returns {Promise<Buffer>}
+ * Extrai o texto de um objeto de mensagem, independentemente do tipo.
+ * @param {object} message O objeto da mensagem do Baileys.
+ * @returns {string | null} O texto da mensagem ou nulo se não houver.
  */
-async function convertAudioToWav(inputBuffer) {
-    console.log('[Audio] A iniciar conversão de áudio para WAV com FFmpeg...');
-    const tempDir = path.join(__dirname, 'temp_audio');
-    await fs.mkdir(tempDir, { recursive: true });
+function getTextFromMsg(message) {
+    if (!message) return null;
+    return message.conversation ||
+           message.extendedTextMessage?.text ||
+           message.imageMessage?.caption ||
+           message.videoMessage?.caption ||
+           null;
+}
 
-    const randomId = crypto.randomBytes(8).toString('hex');
-    const inputPath = path.join(tempDir, `${randomId}.ogg`);
-    const outputPath = path.join(tempDir, `${randomId}.wav`);
-
-    await fs.writeFile(inputPath, inputBuffer);
-
-    // Comando FFmpeg mais robusto, com -y para sobrescrever e -v error para logs mais limpos
-    const ffmpegCommand = `ffmpeg -y -i "${inputPath}" -ar 16000 -ac 1 -c:a pcm_s16le -v error "${outputPath}"`;
-
+/**
+ * Converte um buffer de áudio para o formato WAV usando ffmpeg.
+ * @param {Buffer} audioBuffer O buffer de áudio original.
+ * @returns {Promise<Buffer>} Um buffer com o áudio no formato WAV.
+ */
+async function convertAudioToWav(audioBuffer) {
     return new Promise((resolve, reject) => {
-        exec(ffmpegCommand, async (error, stdout, stderr) => {
-            if (error) {
-                console.error('[FFmpeg Audio Error]:', stderr);
-                await fs.unlink(inputPath).catch(() => {});
-                await fs.unlink(outputPath).catch(() => {});
-                return reject(new Error('Falha ao converter o áudio com FFmpeg. O formato pode não ser suportado.'));
-            }
-            
-            try {
-                // Verifica se o ficheiro de saída foi criado e não está vazio
-                const stats = await fs.stat(outputPath);
-                if (stats.size === 0) {
-                    throw new Error("O ficheiro de áudio convertido está vazio.");
-                }
+        const ffmpegProcess = spawn(ffmpeg, [
+            '-i', 'pipe:0',
+            '-f', 'wav',
+            '-ac', '1',
+            '-ar', '16000',
+            'pipe:1'
+        ]);
 
-                const outputBuffer = await fs.readFile(outputPath);
-                console.log('[Audio] Conversão para WAV concluída com sucesso.');
-                resolve(outputBuffer);
-            } catch (readError) {
-                reject(readError);
-            } finally {
-                // Limpeza dos ficheiros temporários
-                await fs.unlink(inputPath).catch(() => {});
-                await fs.unlink(outputPath).catch(() => {});
+        let outputBuffers = [];
+        ffmpegProcess.stdout.on('data', (chunk) => outputBuffers.push(chunk));
+        ffmpegProcess.stderr.on('data', (data) => console.error(`[FFMPEG STDERR] ${data}`));
+
+        ffmpegProcess.on('close', (code) => {
+            if (code === 0) {
+                resolve(Buffer.concat(outputBuffers));
+            } else {
+                reject(new Error(`FFMPEG falhou ao converter para WAV com o código ${code}`));
+            }
+        });
+
+        ffmpegProcess.stdin.write(audioBuffer);
+        ffmpegProcess.stdin.end();
+    });
+}
+
+
+/**
+ * Obtém a duração de um vídeo em segundos.
+ * @param {string} videoPath O caminho para o ficheiro de vídeo.
+ * @returns {Promise<number>} A duração do vídeo em segundos.
+ */
+async function getVideoDuration(videoPath) {
+    return new Promise((resolve, reject) => {
+        exec(`${ffprobe.path} -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${videoPath}"`, (error, stdout, stderr) => {
+            if (error) {
+                reject(`Erro ao obter a duração do vídeo: ${stderr}`);
+            } else {
+                resolve(parseFloat(stdout));
             }
         });
     });
 }
 
-module.exports = { 
-    getTextFromMsg, 
+/**
+ * Converte um buffer de áudio PCM bruto para o formato OGG Opus usando ffmpeg.
+ * @param {Buffer} pcmBuffer O buffer de áudio PCM.
+ * @returns {Promise<Buffer>} Um buffer com o áudio no formato OGG.
+ */
+async function pcmToOgg(pcmBuffer) {
+    return new Promise((resolve, reject) => {
+        const ffmpegProcess = spawn(ffmpeg, [
+            '-f', 's16le',
+            '-ar', '24000',
+            '-ac', '1',
+            '-i', 'pipe:0',
+            '-c:a', 'libopus',
+            '-b:a', '16k',
+            '-vbr', 'on',
+            '-f', 'ogg',
+            'pipe:1'
+        ]);
+
+        let outputBuffers = [];
+        ffmpegProcess.stdout.on('data', (chunk) => {
+            outputBuffers.push(chunk);
+        });
+
+        ffmpegProcess.on('close', (code) => {
+            if (code === 0) {
+                console.log("[FFMPEG] Conversão de PCM para OGG concluída.");
+                resolve(Buffer.concat(outputBuffers));
+            } else {
+                reject(new Error(`FFMPEG falhou com o código ${code}`));
+            }
+        });
+
+        ffmpegProcess.on('error', (err) => {
+            reject(err);
+        });
+
+        ffmpegProcess.stdin.write(pcmBuffer);
+        ffmpegProcess.stdin.end();
+    });
+}
+
+module.exports = {
     sendJuliaError,
-    convertAudioToWav
+    getTextFromMsg,
+    convertAudioToWav,
+    getVideoDuration,
+    pcmToOgg
 };
+
+

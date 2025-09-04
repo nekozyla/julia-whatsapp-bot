@@ -1,4 +1,4 @@
-// main.js (Versão sem "makeInMemoryStore" para contornar o erro de instalação)
+// main.js (Versão sem "makeInMemoryStore" para contornar o erro)
 
 const { makeWASocket, useMultiFileAuthState, getContentType, DisconnectReason } = require('@whiskeysockets/baileys');
 const { Boom } = require('@hapi/boom');
@@ -48,7 +48,11 @@ function loadCommands() {
             try {
                 const commandName = `!${path.basename(file, '.js')}`;
                 const handler = require(path.join(commandDir, file));
-                if (typeof handler === 'function') commandMap[commandName] = handler;
+                if (typeof handler === 'function') {
+                    commandMap[commandName] = handler;
+                } else {
+                    console.warn(`[Comandos] O arquivo ${file} não exporta uma função e será ignorado.`);
+                }
             } catch (error) {
                 console.error(`[Comandos] Erro ao carregar o comando do arquivo ${file}:`, error);
             }
@@ -248,7 +252,7 @@ async function startJulia() {
 
             if (juliaShouldRespond && aiMode !== 'on') {
                 if (!isGroup) {
-                    await sock.sendMessage(senderJid, { text: "Minha inteligência artificial está desativada. Use `!ia on` para me ativar." }, { quoted: msg });
+                    await sock.sendMessage(senderJid, { text: "Minha inteligência artificial está desativada .Use `!help` para ver a lista de comandos ou `!ia on` para conversar com a IA." }, { quoted: msg });
                 }
                 return;
             }
@@ -304,3 +308,4 @@ startJulia().catch(err => {
     console.error("Erro fatal ao iniciar Julia:", err);
     process.exit(1); 
 });
+

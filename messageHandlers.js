@@ -1,8 +1,10 @@
 // messageHandlers.js
 const { getContentType } = require('@whiskeysockets/baileys');
-const { model } = require('./geminiClient'); 
-const { saveSessionHistory, clearSession, getOrCreateChatForSession } = require('./sessionManager');
+const { model, startChat } = require('./geminiClient'); 
+const { saveSessionHistory, clearSession } = require('./sessionManager');
 const { sendJuliaError } = require('./utils');
+const settingsManager = require('./groupSettingsManager'); // Importa o gestor de configurações
+const { generateSpeech } = require('./speechGenerator'); // Importa o novo gerador de fala
 
 function parseCommandFromResponse(responseText) {
     const commandRegex = /\[DO_COMMAND\](.*?)\[\/DO_COMMAND\]/;
@@ -17,93 +19,82 @@ function parseCommandFromResponse(responseText) {
 }
 
 async function processAIResponse(sock, originalMsg, responseText, chatSession, commandMap) {
-    const commandAction = parseCommandFromResponse(responseText);
-    const senderJid = originalMsg.key.remoteJid;
-    const pushName = originalMsg.pushName || 'alguém';
+    const commandInfo = parseCommandFromResponse(responseText);
 
-    if (commandAction?.commandName) {
-        console.log(`[IA-Comando] Julia decidiu executar o comando: '${commandAction.commandName}'`);
-        
-        if (commandAction.cleanedText) {
-            await sock.sendMessage(senderJid, { text: commandAction.cleanedText }, { quoted: originalMsg });
+    if (commandInfo && commandMap['!' + commandInfo.commandName]) {
+        if (commandInfo.cleanedText) {
+            await sock.sendMessage(originalMsg.key.remoteJid, { text: commandInfo.cleanedText }, { quoted: originalMsg });
         }
+        await commandMap['!' + commandInfo.commandName](sock, originalMsg, { 
+            sender: originalMsg.key.remoteJid, 
+            command: '!' + commandInfo.commandName,
+            isGroup: originalMsg.key.remoteJid.endsWith('@g.us')
+        });
+    } else {
+        const chatJid = originalMsg.key.remoteJid;
+        const speechMode = settingsManager.getSetting(chatJid, 'speechMode', 'off');
 
-        const commandHandler = commandMap[`!${commandAction.commandName}`];
-        if (typeof commandHandler === 'function') {
-            let targetMsg = null;
-            const quotedMsgInfo = originalMsg.message?.extendedTextMessage?.contextInfo;
-
-            if (quotedMsgInfo?.quotedMessage?.imageMessage || quotedMsgInfo?.quotedMessage?.videoMessage) {
-                targetMsg = {
-                    key: { remoteJid: senderJid, id: quotedMsgInfo.stanzaId, participant: quotedMsgInfo.participant },
-                    message: quotedMsgInfo.quotedMessage
-                };
-            } else {
-                const history = await chatSession.getHistory();
-                targetMsg = history.slice().reverse().find(entry => entry.role === 'user' && (entry.message?.imageMessage || entry.message?.videoMessage));
+        if (speechMode === 'on' && responseText) {
+            console.log("[Modo Fala] Gerando áudio para a resposta...");
+            try {
+                const oggBuffer = await generateSpeech(responseText);
+                if (oggBuffer) {
+                    await sock.sendMessage(chatJid, {
+                        audio: oggBuffer,
+                        mimetype: 'audio/ogg; codecs=opus',
+                        ptt: true // Envia como mensagem de voz (Push-to-Talk)
+                    }, { quoted: originalMsg });
+                } else {
+                    console.log("[Modo Fala] Falha na geração de áudio. A enviar como texto.");
+                    await sock.sendMessage(chatJid, { text: responseText }, { quoted: originalMsg });
+                }
+            } catch (error) {
+                console.error("[Modo Fala] Erro crítico na geração/envio de áudio:", error);
+                await sock.sendMessage(chatJid, { text: responseText }, { quoted: originalMsg });
             }
-
-            if (targetMsg) {
-                const fakeMsgDetails = {
-                    sender: senderJid, pushName, command: `!${commandAction.commandName}`,
-                    commandText: `!${commandAction.commandName}`,
-                    messageType: getContentType(targetMsg.message), isGroup: senderJid.endsWith('@g.us'),
-                    quotedMsgInfo: targetMsg.message,
-                    commandSenderJid: originalMsg.key.participant || originalMsg.key.remoteJid
-                };
-                await commandHandler(sock, targetMsg, fakeMsgDetails);
-            } else {
-                await sock.sendMessage(senderJid, { text: "Qual foi, mermão, tu pediu pra fazer a parada mas não achei nenhuma imagem ou vídeo pra usar." }, { quoted: originalMsg });
-            }
+        } else {
+            await sock.sendMessage(chatJid, { text: responseText }, { quoted: originalMsg });
         }
-        return;
     }
-
-    await sock.sendMessage(senderJid, { text: responseText }, { quoted: originalMsg });
 }
 
-// Handler Único e Principal
 async function handleAnyMessage(sock, msg, chatSession, msgDetails, sessionManager, commandMap) {
     const text = msgDetails.currentMessageText || "";
+    const senderJid = msgDetails.sender;
 
-    if (text.toLowerCase() === '/limpar') {
-        await clearSession(msgDetails.sender);
-        await sock.sendMessage(msgDetails.sender, { text: "Seu histórico de conversa comigo foi limpo! ✨" }, { quoted: msg }); 
+    if (text.toLowerCase() === '/limpar' || text.toLowerCase() === '!limpar') {
+        await clearSession(senderJid);
+        await sock.sendMessage(senderJid, { text: "✨ Histórico de conversa limpo! Podemos começar de novo." }, { quoted: msg }); 
         return;
     }
     
     let contextForAI = "[CONTEXTO: TEXTO]";
-    const quotedMsgInfo = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-
-    if (quotedMsgInfo?.imageMessage || quotedMsgInfo?.videoMessage) {
-        contextForAI = "[CONTEXTO: MÍDIA]";
-    } else {
-        const history = await chatSession.getHistory();
-        if (history.length > 0) {
-            const lastMessage = history[history.length - 1];
-            if (lastMessage.role === 'user' && (lastMessage.message?.imageMessage || lastMessage.message?.videoMessage)) {
-                contextForAI = "[CONTEXTO: MÍDIA]";
-            }
-        }
+    if (msg.message.extendedTextMessage?.contextInfo?.quotedMessage) {
+        contextForAI = "[CONTEXTO: RESPOSTA A OUTRA MENSAGEM]";
+    } else if (msgDetails.messageType === 'imageMessage') {
+        contextForAI = "[CONTEXTO: REAÇÃO A UMA IMAGEM]";
+    } else if (msgDetails.messageType === 'videoMessage') {
+        contextForAI = "[CONTEXTO: REAÇÃO A UM VÍDEO]";
+    } else if (msgDetails.messageType === 'stickerMessage') {
+        contextForAI = "[CONTEXTO: REAÇÃO A UMA FIGURINHA]";
     }
-    
-    const userMessageForGemini = `${contextForAI} (${msgDetails.pushName}): ${text}`;
-    console.log(`[Prompt para IA] Enviando: "${userMessageForGemini}"`);
 
     try {
+        const userMessageForGemini = `${contextForAI} (${msgDetails.pushName}): ${text}`;
         const result = await chatSession.sendMessage(userMessageForGemini);
         const responseText = result.response.text();
         
         await processAIResponse(sock, msg, responseText, chatSession, commandMap);
         
         const currentHistory = await chatSession.getHistory();
-        await saveSessionHistory(msgDetails.sender, currentHistory);
+        await saveSessionHistory(senderJid, currentHistory);
 
     } catch (error) {
-        await sendJuliaError(sock, msgDetails.sender, msg, error);
+        await sendJuliaError(sock, senderJid, msg, error);
     }
 }
 
 module.exports = {
     handleAnyMessage
 };
+
