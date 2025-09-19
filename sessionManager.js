@@ -2,7 +2,7 @@
 const fs = require('fs').promises;
 const path = require('path');
 const { SESSIONS_DIR, JULIA_INITIAL_GREETING, DEFAULT_MAX_OUTPUT_TOKENS } = require('./config');
-const { model } = require('./geminiClient'); 
+const { textModel } = require('./geminiClient'); 
 const settingsManager = require('./groupSettingsManager');
 const personalities = require('./personalities');
 
@@ -52,7 +52,7 @@ async function getOrCreateChatForSession(sessionKey) {
         const loadedHistory = await loadSessionHistory(sessionKey);
         const historyToUse = loadedHistory || JSON.parse(JSON.stringify(dynamicInitialContext));
         
-        sessions[sessionKey] = model.startChat({
+        sessions[sessionKey] = textModel.startChat({
             history: historyToUse, 
             generationConfig: { maxOutputTokens: DEFAULT_MAX_OUTPUT_TOKENS },
         });

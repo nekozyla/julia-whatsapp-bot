@@ -1,13 +1,7 @@
-// commands/brat.js
+// commands/brat.js (com fonte de emoji priorizada)
 const { Sticker, StickerTypes } = require('wa-sticker-formatter');
 const sharp = require('sharp');
 
-/**
- * Quebra o texto em múltiplas linhas para caber na imagem.
- * @param {string} text - O texto a ser quebrado.
- * @param {number} maxCharsPerLine - Máximo de caracteres por linha.
- * @returns {string[]} - Um array com as linhas de texto.
- */
 function wrapText(text, maxCharsPerLine) {
     const words = text.split(' ');
     const lines = [];
@@ -70,7 +64,9 @@ async function handleBratCommand(sock, msg, msgDetails) {
                 .title {
                     fill: "${textColor}";
                     font-size: ${fontSize}px;
-                    font-family: 'Arial Narrow', Impact, sans-serif;
+                    /* --- ALTERAÇÃO AQUI --- */
+                    /* Priorizamos a fonte de emoji e adicionamos fallbacks */
+                    font-family: 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', 'Arial Narrow', Impact, sans-serif;
                     font-weight: 700;
                     text-anchor: middle;
                     dominant-baseline: middle;
@@ -82,22 +78,16 @@ async function handleBratCommand(sock, msg, msgDetails) {
 
         const imageBuffer = await sharp({
             create: {
-                width: imageWidth,
-                height: imageHeight,
-                channels: 4,
-                background: bratGreen
+                width: imageWidth, height: imageHeight, channels: 4, background: bratGreen
             }
         })
         .composite([{ input: Buffer.from(svgText) }])
-        .blur(40) // BLUR AUMENTADO AINDA MAIS
-        .webp({ quality: 15 })
+        .blur(100)
+        .webp({ quality: 1 })
         .toBuffer();
 
         const sticker = new Sticker(imageBuffer, {
-            pack: 'Brat',
-            author: "Jul.ia by @nekozylajs",
-            type: StickerTypes.FULL,
-            quality: 15,
+            pack: 'Brat', author: "Jul.ia by @nekozylajs", type: StickerTypes.FULL, quality: 15,
         });
         
         const stickerMessage = await sticker.toMessage();

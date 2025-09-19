@@ -6,33 +6,38 @@ const path = require('path');
 const fsp = require('fs').promises;
 const { exec } = require('child_process');
 const crypto = require('crypto');
+const { path: ffprobePath } = require('ffprobe-static');
 
-// A função getVideoDuration não é mais necessária e foi removida.
+async function getVideoDuration(filePath) {
+    const command = `${ffprobePath} -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${filePath}"`;
+    return new Promise((resolve, reject) => {
+        exec(command, (error, stdout, stderr) => {
+            if (error) return reject(new Error(`Erro no ffprobe: ${stderr}`));
+            resolve(parseFloat(stdout));
+        });
+    });
+}
 
 async function optimizeAnimatedSticker(inputPath, outputPath) {
-    const MAX_SIZE_BYTES = 900 * 900; // Aproximadamente 1MB
+    const MAX_SIZE_BYTES = 1000 * 1000;
     const optimizationSteps = [
         { quality: 75, fps: 15 },
         { quality: 65, fps: 12 },
         { quality: 50, fps: 10 },
         { quality: 40, fps: 8 }
     ];
-
     for (const params of optimizationSteps) {
-        // --- ALTERAÇÃO AQUI: O vídeo é cortado para no máximo 6 segundos com o parâmetro "-t 6" ---
-        const ffmpegCommand = `ffmpeg -i "${inputPath}" -y -t 6 ` + 
+        const ffmpegCommand = `ffmpeg -i "${inputPath}" -y -t 7 ` +
             `-vf "scale=512:512:force_original_aspect_ratio=increase,crop=512:512,fps=${params.fps},split[s0][s1];[s0]palettegen=max_colors=254[p];[s1][p]paletteuse=dither=bayer" ` +
             `-c:v libwebp -lossless 0 -q:v ${params.quality} -loop 0 -preset default -an -vsync 0 "${outputPath}"`;
-
         await new Promise((resolve, reject) => {
             exec(ffmpegCommand, (error) => {
                 if (error) return reject(new Error(`Erro no FFmpeg: ${error.message}`));
                 resolve();
             });
         });
-
         const stats = await fsp.stat(outputPath);
-        if (stats.size < MAX_SIZE_BYTES) return; // Se o tamanho for aceitável, termina.
+        if (stats.size < MAX_SIZE_BYTES) return;
     }
     throw new Error(`Não foi possível otimizar o sticker para menos de 1 MB.`);
 }
@@ -55,7 +60,7 @@ async function handleStickerCreationCommand(sock, msg, msgDetails) {
     }
 
     if (!mediaToProcess) {
-        await sock.sendMessage(sender, { text: 'Para usar o `/sticker`, envie o comando na legenda de uma imagem/gif ou responda a um com `/sticker`.' }, { quoted: msg });
+        await sock.sendMessage(sender, { text: 'Para usar o `!sticker`, envie o comando na legenda de uma imagem/gif ou responda a um com `!sticker`.' }, { quoted: msg });
         return true;
     }
 
@@ -78,20 +83,26 @@ async function handleStickerCreationCommand(sock, msg, msgDetails) {
     try {
         const isAnimated = getContentType(mediaToProcess.message) === 'videoMessage';
 
+        // --- LÓGICA DE REAÇÃO CORRIGIDA ---
         if (isAnimated) {
             try {
+                console.log(`[Reação] A tentar reagir à mensagem ${msg.key.id}`);
                 await sock.sendMessage(sender, { react: { text: '⏳', key: msg.key } });
+                console.log(`[Reação] Reação enviada com sucesso.`);
             } catch (reactError) {
                 console.error('[Reação] Falha ao enviar a reação:', reactError);
             }
         }
+        // -----------------------------
 
         let buffer = await downloadMediaMessage(mediaToProcess, 'buffer', {}, { logger: undefined });
 
         if (isAnimated) {
             await fsp.writeFile(inputPath, buffer);
-            // --- ALTERAÇÃO AQUI: A verificação de duração foi removida daqui ---
-            // O corte agora é feito diretamente na função de otimização.
+            const duration = await getVideoDuration(inputPath);
+            if (duration > 5.5) {
+                throw new Error("Vídeo muito longo! Envie um com no máximo 5 segundos.");
+            }
             await optimizeAnimatedSticker(inputPath, outputPath);
             buffer = await fsp.readFile(outputPath);
         } else {
@@ -115,7 +126,6 @@ async function handleStickerCreationCommand(sock, msg, msgDetails) {
         console.error('[Sticker] Erro ao processar figurinha:', err);
         await sock.sendMessage(sender, { text: `Tive um probleminha pra fazer essa figurinha 😕.\n\n_${err.message}_` });
     } finally {
-        // Limpa os ficheiros temporários
         await fsp.unlink(inputPath).catch(() => {});
         await fsp.unlink(outputPath).catch(() => {});
     }

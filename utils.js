@@ -1,4 +1,4 @@
-// utils.js
+// utils.js (Versão atualizada e completa)
 const { exec, spawn } = require('child_process');
 const fs = require('fs').promises;
 const { tmpdir } = require('os');
@@ -28,7 +28,7 @@ async function sendJuliaError(sock, chatJid, originalMsg, error) {
         if (error.message.includes('API key not valid')) {
             friendlyMessage = "🔑 Minha chave de API para o Gemini não é válida. A minha criadora precisa de verificar o ficheiro `.env`.";
         } else if (error.message.includes('quota')) {
-            friendlyMessage = " overworked. 🥵 Atingi o meu limite de pedidos à IA por enquanto. Por favor, tente novamente mais tarde.";
+            friendlyMessage = " overworked.  Atingi o meu limite de pedidos à IA por enquanto. Por favor, tente novamente mais tarde.";
         }
     } else if (error.message.includes('FFMPEG')) {
         friendlyMessage = "😕 Tive um problema ao processar o ficheiro de mídia. Ele pode estar num formato que eu não consigo ler.";
@@ -49,11 +49,23 @@ async function sendJuliaError(sock, chatJid, originalMsg, error) {
 function getTextFromMsg(message) {
     if (!message) return null;
     return message.conversation ||
-           message.extendedTextMessage?.text ||
-           message.imageMessage?.caption ||
-           message.videoMessage?.caption ||
-           null;
+        message.extendedTextMessage?.text ||
+        message.imageMessage?.caption ||
+        message.videoMessage?.caption ||
+        null;
 }
+
+/**
+ * Extrai o texto de um comando, removendo o prefixo.
+ * @param {string} fullText O texto completo da mensagem.
+ * @param {string} commandPrefix O prefixo do comando (ex: "!mudar").
+ * @returns {string | null} O texto após o comando ou nulo.
+ */
+function extractCommandText(fullText, commandPrefix) {
+    if (!fullText || !fullText.startsWith(commandPrefix)) return null;
+    return fullText.substring(commandPrefix.length).trim();
+}
+
 
 /**
  * Converte um buffer de áudio para o formato WAV usando ffmpeg.
@@ -150,9 +162,8 @@ async function pcmToOgg(pcmBuffer) {
 module.exports = {
     sendJuliaError,
     getTextFromMsg,
+    extractCommandText, // Adicionada para exportação
     convertAudioToWav,
     getVideoDuration,
-    pcmToOgg
+    pcmToOgg // Adicionada para exportação
 };
-
-

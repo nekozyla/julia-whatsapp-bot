@@ -7,34 +7,29 @@ const fsp = require('fs').promises;
 const { exec } = require('child_process');
 const crypto = require('crypto');
 
-// A função getVideoDuration não é mais necessária e foi removida.
-
+// --- FUNÇÃO OTIMIZADA ---
+// Agora executa um único comando FFmpeg balanceado para velocidade e tamanho.
 async function optimizeAnimatedSticker(inputPath, outputPath) {
-    const MAX_SIZE_BYTES = 900 * 900; // Aproximadamente 1MB
-    const optimizationSteps = [
-        { quality: 75, fps: 15 },
-        { quality: 65, fps: 12 },
-        { quality: 50, fps: 10 },
-        { quality: 40, fps: 8 }
-    ];
+    const MAX_SIZE_BYTES = 950 * 1024; // 950 KB para segurança
 
-    for (const params of optimizationSteps) {
-        // --- ALTERAÇÃO AQUI: O vídeo é cortado para no máximo 6 segundos com o parâmetro "-t 6" ---
-        const ffmpegCommand = `ffmpeg -i "${inputPath}" -y -t 6 ` + 
-            `-vf "scale=512:512:force_original_aspect_ratio=increase,crop=512:512,fps=${params.fps},split[s0][s1];[s0]palettegen=max_colors=254[p];[s1][p]paletteuse=dither=bayer" ` +
-            `-c:v libwebp -lossless 0 -q:v ${params.quality} -loop 0 -preset default -an -vsync 0 "${outputPath}"`;
+    // Comando único, mais rápido, que corta para 6s, ajusta para 12 FPS e otimiza a paleta de cores.
+    // A qualidade de vídeo "-q:v 60" é um bom equilíbrio entre tamanho e aparência.
+    const ffmpegCommand = `ffmpeg -i "${inputPath}" -y -t 6 ` +
+        `-vf "scale=512:512:force_original_aspect_ratio=increase,crop=512:512,fps=12,split[s0][s1];[s0]palettegen=max_colors=250[p];[s1][p]paletteuse=dither=bayer" ` +
+        `-c:v libwebp -lossless 0 -q:v 60 -loop 0 -preset default -an -vsync 0 "${outputPath}"`;
 
-        await new Promise((resolve, reject) => {
-            exec(ffmpegCommand, (error) => {
-                if (error) return reject(new Error(`Erro no FFmpeg: ${error.message}`));
-                resolve();
-            });
+    await new Promise((resolve, reject) => {
+        exec(ffmpegCommand, (error) => {
+            if (error) return reject(new Error(`Erro no FFmpeg durante a otimização: ${error.message}`));
+            resolve();
         });
+    });
 
-        const stats = await fsp.stat(outputPath);
-        if (stats.size < MAX_SIZE_BYTES) return; // Se o tamanho for aceitável, termina.
+    // Mesmo com a otimização, ainda verificamos o tamanho final por segurança.
+    const stats = await fsp.stat(outputPath);
+    if (stats.size > MAX_SIZE_BYTES) {
+        throw new Error(`O vídeo é muito complexo e não foi possível otimizá-lo para menos de 1 MB.`);
     }
-    throw new Error(`Não foi possível otimizar o sticker para menos de 1 MB.`);
 }
 
 async function handleStickerCreationCommand(sock, msg, msgDetails) {
@@ -90,8 +85,6 @@ async function handleStickerCreationCommand(sock, msg, msgDetails) {
 
         if (isAnimated) {
             await fsp.writeFile(inputPath, buffer);
-            // --- ALTERAÇÃO AQUI: A verificação de duração foi removida daqui ---
-            // O corte agora é feito diretamente na função de otimização.
             await optimizeAnimatedSticker(inputPath, outputPath);
             buffer = await fsp.readFile(outputPath);
         } else {
