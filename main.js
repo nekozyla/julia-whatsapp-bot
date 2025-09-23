@@ -29,7 +29,7 @@ function loadCommands() {
         console.log(`[Comandos] Encontrados ${commandFiles.length} arquivos de comando...`);
         for (const file of commandFiles) {
             try {
-                const commandName = `/${path.basename(file, '.js')}`;
+               const commandName = `/${path.basename(file, '.js')}`;
                 const handler = require(path.join(commandDir, file));
                 if (typeof handler === 'function') {
                     commandMap[commandName] = handler;
@@ -80,7 +80,7 @@ async function startJulia() {
             if (!isAllowedGroup && !isAllowedContact) {
                 if (!isGroup) {
                     if (rejectionManager.shouldSendRejection(authorJid)) {
-                        const rejectionMessage = "Olá! Devido a um grande número de banimentos, a Julia agora opera exclusivamente no nosso grupo oficial para garantir a segurança e a qualidade do serviço. Por favor, junte-se a nós para continuar a usar todas as funcionalidades!\n\n🔗 Link do Grupo: https://chat.whatsapp.com/Kls65TTEI67Jv8Xv6lpFjL?mode=ems_copy_t";
+                        const rejectionMessage = "Olá! Devido a um grande número de banimentos, a Julia agora opera exclusivamente no nosso grupo oficial para garantir a segurança e a qualidade do serviço. Por favor, junte-se a nós para continuar a usar todas as funcionalidades!\n\n🔗 Link do Grupo: https://chat.whatsapp.com/G6yvFKyWglbCcCLZxRPPHw?mode=ems_copy_t";
                         
                         await sock.sendMessage(authorJid, { text: rejectionMessage });
                         rejectionManager.recordRejectionSent(authorJid);
@@ -108,6 +108,20 @@ async function startJulia() {
                 }
             }
 
+		if (isGroup) {
+    const isChatRestricted = settingsManager.getSetting(senderJid, 'chatRestricted', 'off');
+    const isTextMessage = textContent && !textContent.startsWith('/');
+
+    // Se o chat está restrito e a mensagem não é um comando
+    if (isChatRestricted === 'on' && isTextMessage) {
+        const alertMessage = `Este grupo é apenas para comandos. 🤫\n\nPara conversar, por favor, entre no nosso grupo de bate-papo:\nhttps://chat.whatsapp.com/Kls65TTEI67Jv8Xv6lpFjL`;
+        await sock.sendMessage(senderJid, { text: alertMessage });
+        return; // Para a execução para não processar a mensagem como IA
+    }
+}
+
+
+
             if (isGroup) {
                 const memeMode = settingsManager.getSetting(senderJid, 'memeMode', 'off');
                 if (memeMode === 'on' && !textContent?.startsWith('/')) {
@@ -126,19 +140,20 @@ async function startJulia() {
             
             await contactManager.addContact(senderJid);
             
-            if (!isGroup && (messageType === 'imageMessage' || messageType === 'videoMessage') && !textContent?.startsWith('/')) {
-                const stickerMode = settingsManager.getSetting(senderJid, 'stickerMode', 'on');
-                if (stickerMode === 'on') {
-                    const stickerHandler = commandMap['/sticker'];
-                    if (typeof stickerHandler === 'function') {
-                        await stickerHandler(sock, msg, {
-                            sender: senderJid, pushName, command: '/sticker', commandText: '/sticker',
-                            messageType, isGroup, quotedMsgInfo: null, commandSenderJid: senderJid
-                        });
-                    }
-                    return;
-                }
-            }
+// DEPOIS
+if ((messageType === 'imageMessage' || messageType === 'videoMessage') && !textContent?.startsWith('/')) {
+    const stickerMode = settingsManager.getSetting(senderJid, 'stickerMode', 'off'); // Mude o padrão para 'off' para segurança
+    if (stickerMode === 'on') {
+        const stickerHandler = commandMap['/sticker'];
+        if (typeof stickerHandler === 'function') {
+            await stickerHandler(sock, msg, {
+                sender: senderJid, pushName, command: '/sticker', commandText: '/sticker',
+                messageType, isGroup, quotedMsgInfo: null, commandSenderJid: senderJid
+            });
+        }
+        return;
+    }
+}
 
             let commandToRun = null;
             if (textContent?.startsWith('/')) {
@@ -153,6 +168,19 @@ async function startJulia() {
             }
 
             if (commandToRun) {
+    if (isGroup) {
+        const restrictedCommands = settingsManager.getSetting(senderJid, 'restrictedCommands', []);
+        const isAdmin = config.ADMIN_JIDS.includes(authorJid); // Assumindo que admins podem usar
+
+        if (restrictedCommands.includes(commandToRun) && !isAdmin) {
+            await sock.sendMessage(senderJid, { text: `🚫 O uso do comando \`${commandToRun}\` foi desativado neste grupo pelos administradores.` }, { quoted: msg });
+            return; // Para a execução para não rodar o comando
+        }
+    }
+
+
+
+
                 console.log(`[Comando] Roteando para o handler: ${commandToRun}`);
                 const msgDetails = { 
                     sender: senderJid, pushName, command: commandToRun, commandText: textContent, 

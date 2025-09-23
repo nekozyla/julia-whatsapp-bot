@@ -10,12 +10,13 @@ const crypto = require('crypto');
 // A função getVideoDuration não é mais necessária e foi removida.
 
 async function optimizeAnimatedSticker(inputPath, outputPath) {
-    const MAX_SIZE_BYTES = 900 * 900; // Aproximadamente 1MB
+    const MAX_SIZE_BYTES = 800 * 800; // Aproximadamente 1MB
     const optimizationSteps = [
-        { quality: 75, fps: 15 },
-        { quality: 65, fps: 12 },
-        { quality: 50, fps: 10 },
-        { quality: 40, fps: 8 }
+        { quality: 50, fps: 24 },
+        { quality: 10, fps: 24 },
+        { quality: 5, fps: 18 },
+        { quality: 1, fps: 14 }
+
     ];
 
     for (const params of optimizationSteps) {
@@ -105,7 +106,7 @@ async function handleStickerCreationCommand(sock, msg, msgDetails) {
         const sticker = new Sticker(buffer, {
             pack: options.pack,
             author: "Criado por Jul.ia by @nekozylajs",
-            type: StickerTypes.FULL,
+            type: StickerTypes.ORIGINAL,
             quality: 80,
         });
 

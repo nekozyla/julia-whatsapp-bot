@@ -1,119 +1,95 @@
 // commands/sticker.js
 const { downloadMediaMessage, getContentType } = require('@whiskeysockets/baileys');
 const { Sticker, StickerTypes } = require('wa-sticker-formatter');
-const sharp = require('sharp');
-const path = require('path');
-const fsp = require('fs').promises;
-const { exec } = require('child_process');
-const crypto = require('crypto');
 
-// --- FUNÇÃO OTIMIZADA ---
-// Agora executa um único comando FFmpeg balanceado para velocidade e tamanho.
-async function optimizeAnimatedSticker(inputPath, outputPath) {
-    const MAX_SIZE_BYTES = 950 * 1024; // 950 KB para segurança
-
-    // Comando único, mais rápido, que corta para 6s, ajusta para 12 FPS e otimiza a paleta de cores.
-    // A qualidade de vídeo "-q:v 60" é um bom equilíbrio entre tamanho e aparência.
-    const ffmpegCommand = `ffmpeg -i "${inputPath}" -y -t 6 ` +
-        `-vf "scale=512:512:force_original_aspect_ratio=increase,crop=512:512,fps=12,split[s0][s1];[s0]palettegen=max_colors=250[p];[s1][p]paletteuse=dither=bayer" ` +
-        `-c:v libwebp -lossless 0 -q:v 60 -loop 0 -preset default -an -vsync 0 "${outputPath}"`;
-
-    await new Promise((resolve, reject) => {
-        exec(ffmpegCommand, (error) => {
-            if (error) return reject(new Error(`Erro no FFmpeg durante a otimização: ${error.message}`));
-            resolve();
-        });
-    });
-
-    // Mesmo com a otimização, ainda verificamos o tamanho final por segurança.
-    const stats = await fsp.stat(outputPath);
-    if (stats.size > MAX_SIZE_BYTES) {
-        throw new Error(`O vídeo é muito complexo e não foi possível otimizá-lo para menos de 1 MB.`);
-    }
-}
-
+/**
+ * Lida com a criação de stickers a partir de imagens ou vídeos.
+ * @param {import('@whiskeysockets/baileys').WASocket} sock - A instância do socket Baileys.
+ * @param {import('@whiskeysockets/baileys').WAMessage} msg - A mensagem recebida.
+ * @param {object} msgDetails - Detalhes pré-processados da mensagem.
+ */
 async function handleStickerCreationCommand(sock, msg, msgDetails) {
-    const { sender, commandText, messageType, quotedMsgInfo } = msgDetails;
-    
-    let mediaToProcess = null;
-    
-    if (messageType === 'imageMessage' || messageType === 'videoMessage') {
-        mediaToProcess = msg;
-    } else if (quotedMsgInfo) {
-        const quotedMsgType = getContentType(quotedMsgInfo);
-        if (quotedMsgType === 'imageMessage' || quotedMsgType === 'videoMessage') {
-            mediaToProcess = {
-                key: msg.message.extendedTextMessage.contextInfo.quotedMessage.key,
-                message: quotedMsgInfo
-            };
-        }
-    }
+    const { sender, commandText } = msgDetails;
 
-    if (!mediaToProcess) {
-        await sock.sendMessage(sender, { text: 'Para usar o `/sticker`, envie o comando na legenda de uma imagem/gif ou responda a um com `/sticker`.' }, { quoted: msg });
+    // Determina qual mensagem contém a mídia (a atual ou a respondida)
+    const messageWithMedia = msg.message?.imageMessage || msg.message?.videoMessage ? msg :
+        msg.message?.extendedTextMessage?.contextInfo?.quotedMessage ? { message: msg.message.extendedTextMessage.contextInfo.quotedMessage } :
+        null;
+
+    if (!messageWithMedia) {
+        await sock.sendMessage(sender, { text: 'Para usar o `/sticker`, envie uma imagem/vídeo ou responda a um com o comando.' }, { quoted: msg });
         return true;
     }
 
-    const argsString = (commandText || '').substring(msgDetails.command.length).trim();
-    const options = { pack: '', format: 'original' };
-    const packRegex = /pack:(?:"([^"]+)"|'([^']+)')/i;
-    const packMatch = argsString.match(packRegex);
-    if (packMatch) options.pack = packMatch[1] || packMatch[2] || '';
-    const remainingArgs = argsString.replace(packRegex, '').trim();
-    if (remainingArgs.toLowerCase().split(' ').includes('quadrado')) options.format = 'square';
+    const messageType = getContentType(messageWithMedia.message);
 
-    console.log(`[Sticker] Iniciando. Opções: ${JSON.stringify(options)}`);
+    if (messageType !== 'imageMessage' && messageType !== 'videoMessage') {
+        await sock.sendMessage(sender, { text: 'Por favor, envie ou responda a uma imagem ou vídeo para criar um sticker.' }, { quoted: msg });
+        return true;
+    }
 
-    const tempDir = path.join(__dirname, '..', 'temp_stickers');
-    await fsp.mkdir(tempDir, { recursive: true });
-    const randomId = crypto.randomBytes(8).toString('hex');
-    const inputPath = path.join(tempDir, `${randomId}_in.mp4`);
-    const outputPath = path.join(tempDir, `${randomId}_out.webp`);
-    
+    // Envia uma reação para indicar que o processo começou
     try {
-        const isAnimated = getContentType(mediaToProcess.message) === 'videoMessage';
-
-        if (isAnimated) {
-            try {
-                await sock.sendMessage(sender, { react: { text: '⏳', key: msg.key } });
-            } catch (reactError) {
-                console.error('[Reação] Falha ao enviar a reação:', reactError);
-            }
-        }
-
-        let buffer = await downloadMediaMessage(mediaToProcess, 'buffer', {}, { logger: undefined });
-
-        if (isAnimated) {
-            await fsp.writeFile(inputPath, buffer);
-            await optimizeAnimatedSticker(inputPath, outputPath);
-            buffer = await fsp.readFile(outputPath);
-        } else {
-            const fitMode = options.format === 'square' ? 'cover' : 'contain';
-            buffer = await sharp(buffer)
-                .resize(512, 512, { fit: fitMode, background: { r: 0, g: 0, b: 0, alpha: 0 } })
-                .webp({ quality: 80 })
-                .toBuffer();
-        }
-
-        const sticker = new Sticker(buffer, {
-            pack: options.pack,
-            author: "Criado por Jul.ia by @nekozylajs",
-            type: StickerTypes.FULL,
-            quality: 80,
-        });
-
-        await sock.sendMessage(sender, await sticker.toMessage());
-
-    } catch (err) {
-        console.error('[Sticker] Erro ao processar figurinha:', err);
-        await sock.sendMessage(sender, { text: `Tive um probleminha pra fazer essa figurinha 😕.\n\n_${err.message}_` });
-    } finally {
-        // Limpa os ficheiros temporários
-        await fsp.unlink(inputPath).catch(() => {});
-        await fsp.unlink(outputPath).catch(() => {});
+        await sock.sendMessage(sender, { react: { text: '⏳', key: msg.key } });
+    } catch (reactError) {
+        console.error('[Reação] Falha ao enviar a reação:', reactError);
     }
     
-    return true; 
+    try {
+        // --- PARTE CENTRAL DA LÓGICA ---
+        // 1. Baixa a mídia diretamente para um buffer
+        const buffer = await downloadMediaMessage(messageWithMedia, 'buffer', {});
+
+        // 2. Processa os argumentos do comando (pack e tipo)
+        const argsString = (commandText || '').substring(msgDetails.command.length).trim();
+        
+        let packName = 'Criado por Jul.ia'; // Nome do pack padrão
+        let stickerType = StickerTypes.FULL; // Tipo padrão (imagem inteira)
+
+        // Extrai o nome do pack usando regex
+        const packMatch = argsString.match(/pack:(?:"([^"]+)"|'([^']+)')/i);
+        if (packMatch) {
+            packName = packMatch[1] || packMatch[2] || packName;
+        }
+
+        // Verifica se outros tipos foram especificados
+        const lowerArgs = argsString.toLowerCase();
+        if (lowerArgs.includes('quadrado') || lowerArgs.includes('crop')) {
+            stickerType = StickerTypes.CROPPED; // Corta para caber em um quadrado
+        } else if (lowerArgs.includes('circulo') || lowerArgs.includes('circle')) {
+            stickerType = StickerTypes.CIRCLE;
+        } else if (lowerArgs.includes('redondo') || lowerArgs.includes('rounded')) {
+            stickerType = StickerTypes.ROUNDED;
+        }
+
+        // 3. Monta as opções do sticker para a biblioteca
+        const stickerOptions = {
+            pack: packName,
+            author: '@nekozylajs',
+            type: stickerType,
+            quality: 50, // Qualidade padrão para manter o tamanho do arquivo baixo
+            background: { r: 0, g: 0, b: 0, alpha: 0 } // Fundo transparente
+        };
+
+        console.log(`[Sticker] Criando sticker com as opções: ${JSON.stringify(stickerOptions)}`);
+
+        // 4. Cria o sticker usando a biblioteca
+        const sticker = await new Sticker(buffer, stickerOptions)
+            .toMessage(); // Gera o objeto de mensagem compatível com Baileys
+
+        // 5. Envia o sticker
+        await sock.sendMessage(sender, sticker);
+
+    } catch (err) {
+        console.error('[Sticker] Erro ao processar sticker:', err);
+        await sock.sendMessage(
+            sender, 
+            { text: `Tive um probleminha pra fazer essa figurinha 😕.\n\n_${err.message}_` }, 
+            { quoted: msg }
+        );
+    }
+
+    return true;
 }
 
 module.exports = handleStickerCreationCommand;
