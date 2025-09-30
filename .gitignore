@@ -26,6 +26,8 @@ groupSettings.json
 temp_memes/
 temp_stickers/
 temp_audio/
+data/
+
 
 # Arquivos de sistema e de IDE
 .DS_Store
