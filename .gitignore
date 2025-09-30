@@ -23,6 +23,7 @@ groupSettings.json
 *.json
 
 # Pastas temporárias de mídia
+temp/
 temp_memes/
 temp_stickers/
 temp_audio/
