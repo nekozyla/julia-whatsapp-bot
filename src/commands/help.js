@@ -113,14 +113,19 @@ _Reage a todas as mensagens com emojis aleatórios._
 */modotomate [on/off]*
 _Reage com um 🍅 a mensagens consideradas polémicas._
 
-*/modotranscricao [on/off]*
-_Transcreve todos os áudios enviados no chat._
-
 */fiscalizar [on/off]*
 _Envia uma figurinha de "fiscalização" aleatoriamente no grupo._
 
 
 *--- 👑 Comandos de Admin de Grupo ---*
+
+
+\`/restrict [opção]\`
+_Gere as restrições de comandos e de chat no grupo._
+- \`/restrict chat on|off\`: Ativa/desativa a restrição de chat (só comandos).
+- \`/restrict chat on --reinforced\`: Ativa o modo que apaga todas as mensagens de não-admins (exceto comandos, imagens e stickers).
+- \`/restrict command add|remove </comando>\`: Bloqueia/libera um comando.
+- \`/restrict view\`: Mostra as restrições atuais.
 
 */todos [mensagem]*
 _Menciona todos os membros do grupo._

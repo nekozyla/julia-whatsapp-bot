@@ -32,5 +32,11 @@ module.exports = {
     '/divorcio': '/casar',    // Adicione ou verifique esta linha
     '/casados': '/casar',     // Adicione ou verifique esta linha
     '/aceitar': '/casar',      
-    '/gado': '/gadometro'
+    '/gado': '/gadometro',
+    '/aceitarcombate': '/combate', // <-- ADICIONE ESTA LINHA
+    '/ataque': '/combate',         // <-- ADICIONE ESTA LINHA
+    '/desistir': '/combate',        // <-- ADICIONE ESTA LINHA
+    '/abrir': '/grupo',       // <-- ADICIONE ESTA LINHA
+    '/fechar': '/grupo'     // <-- ADICIONE ESTA LINHA
+
 };

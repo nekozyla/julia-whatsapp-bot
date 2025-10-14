@@ -116,10 +116,15 @@ async function generateBratImage(text, preset) {
 
     `;
 
-    return nodeHtmlToImage({ html });
-
+    return nodeHtmlToImage({ 
+        html,
+        puppeteerArgs: {
+            // Substitua o caminho abaixo pelo resultado do comando 'which chromium-browser'
+            executablePath: '/usr/bin/chromium-browser', 
+            args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        }
+    });
 }
-
 
 
 // --- Handler Principal do Comando (sem alterações) ---

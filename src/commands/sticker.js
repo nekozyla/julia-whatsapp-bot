@@ -113,7 +113,7 @@ async function optimizeAnimatedSticker(inputPath, outputPath) {
 
     for (const params of optimizationSteps) {
         const ffmpegCommand = `ffmpeg -i "${inputPath}" -y -t 10 ` + 
-            `-vf "scale=512:512:force_original_aspect_ratio=increase,crop=512:512,fps=${params.fps},split[s0][s1];[s0]palettegen=max_colors=254[p];[s1][p]paletteuse=dither=bayer" ` +
+            `-vf "scale=512:512:force_original_aspect_ratio=increase,crop=512:512,fps=24,format=rgb24,split[s0][s1];[s0]palettegen=max_colors=254[p];[s1][p]paletteuse=dither=bayer" ` +
             `-c:v libwebp -lossless 0 -q:v ${params.quality} -loop 0 -preset default -an -vsync 0 "${outputPath}"`;
 
         await new Promise((resolve, reject) => {
