@@ -38,6 +38,14 @@ Ex: \`/brat deluxe club classics\`
 _Cria um meme 'pat-pat' com uma imagem ou figurinha._
 Ex: (responda a uma imagem com \`/patpat\`)
 
+\`/lowres [1-100]\`
+_Distorce uma imagem ou figurinha estática, reduzindo drasticamente a qualidade._
+Ex: (responda a uma imagem com \`/lowres 1\`)
+
+\`/capa\`
+_Adiciona o selo "Parental Advisory" a uma imagem ou figurinha estática._
+Ex: (responda a uma imagem com \`/capa\`)
+
 
 *--- 📥 Downloads ---*
 

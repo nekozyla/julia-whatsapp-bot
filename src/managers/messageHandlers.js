@@ -1,51 +1,39 @@
-// messageHandlers.js (Caminhos Corrigidos)
+// messageHandlers.js (Versão com feedback de processamento e melhor tratamento de erros)
+
 const { getContentType } = require('@whiskeysockets/baileys');
 const { model, startChat } = require('./geminiClient'); 
 const { saveSessionHistory, clearSession } = require('./sessionManager');
-const { sendJuliaError } = require('../utils/utils.js'); // <-- CAMINHO CORRIGIDO
+const { sendJuliaError } = require('../utils/utils.js');
 const settingsManager = require('./groupSettingsManager');
 
-function parseCommandFromResponse(responseText) {
-    const commandRegex = /\[DO_COMMAND\](.*?)\[\/DO_COMMAND\]/;
-    const match = responseText.match(commandRegex);
-    if (match && match[1]) {
-        return {
-            commandName: match[1].trim().toLowerCase(),
-            cleanedText: responseText.replace(commandRegex, '').trim()
-        };
-    }
-    return null;
-}
+// --- FUNÇÃO REMOVIDA ---
+// A função parseCommandFromResponse foi removida pois não estava a ser utilizada.
 
-async function processAIResponse(sock, originalMsg, responseText, chatSession, commandMap) {
-    const commandInfo = parseCommandFromResponse(responseText);
+async function processAIResponse(sock, originalMsg, responseText, chatSession) {
     const chatJid = originalMsg.key.remoteJid;
 
-    if (commandInfo && commandMap['!' + commandInfo.commandName]) {
-        if (commandInfo.cleanedText) {
-            await sock.sendMessage(chatJid, { text: commandInfo.cleanedText }, { quoted: originalMsg });
-        }
-        await commandMap['!' + commandInfo.commandName](sock, originalMsg, { 
-            sender: chatJid, 
-            command: '!' + commandInfo.commandName,
-            isGroup: chatJid.endsWith('@g.us')
-        });
-    } else {
-        // Lógica de speechGenerator removida. Envia sempre como texto.
+    // Se a resposta da IA for válida, envia o texto.
+    if (responseText) {
         await sock.sendMessage(chatJid, { text: responseText }, { quoted: originalMsg });
+    } else {
+        // Se a IA não retornou texto (erro ou filtro de segurança), avisa o utilizador.
+        console.warn(`[AI] A resposta do Gemini para ${chatJid} veio vazia.`);
+        await sock.sendMessage(chatJid, { text: "😕 Tentei pensar numa resposta, mas não consegui formular nada. Tente perguntar de outra forma." }, { quoted: originalMsg });
     }
 }
 
-async function handleAnyMessage(sock, msg, chatSession, msgDetails, sessionManager, commandMap) {
+async function handleAnyMessage(sock, msg, chatSession, msgDetails, sessionManager) {
     const text = msgDetails.currentMessageText || "";
     const senderJid = msgDetails.sender;
 
+    // O comando de limpar continua igual.
     if (text.toLowerCase() === '/limpar' || text.toLowerCase() === '!limpar') {
         await clearSession(senderJid);
         await sock.sendMessage(senderJid, { text: "✨ Histórico de conversa limpo! Podemos começar de novo." }, { quoted: msg }); 
         return;
     }
     
+    // Constrói o contexto para a IA
     let contextForAI = "[CONTEXTO: TEXTO]";
     if (msg.message.extendedTextMessage?.contextInfo?.quotedMessage) {
         contextForAI = "[CONTEXTO: RESPOSTA A OUTRA MENSAGEM]";
@@ -58,16 +46,31 @@ async function handleAnyMessage(sock, msg, chatSession, msgDetails, sessionManag
     }
 
     try {
+        // --- MELHORIA 1: Feedback Imediato ---
+        // Reage à mensagem do utilizador para indicar que a IA está a "pensar".
+        // Isto confirma que a mensagem não foi ignorada.
+        await sock.sendMessage(senderJid, { react: { text: '🤔', key: msg.key } });
+
         const userMessageForGemini = `${contextForAI} (${msgDetails.pushName}): ${text}`;
         const result = await chatSession.sendMessage(userMessageForGemini);
         const responseText = result.response.text();
         
-        await processAIResponse(sock, msg, responseText, chatSession, commandMap);
+        // --- MELHORIA 2: Resposta Garantida ---
+        // Passa a responsabilidade de enviar a mensagem para uma função que verifica se a resposta não está vazia.
+        await processAIResponse(sock, msg, responseText, chatSession);
+        
+        // --- MELHORIA 3: Feedback de Conclusão ---
+        // Troca a reação para "sucesso" após enviar a resposta.
+        await sock.sendMessage(senderJid, { react: { text: '✅', key: msg.key } });
         
         const currentHistory = await chatSession.getHistory();
         await saveSessionHistory(senderJid, currentHistory);
 
     } catch (error) {
+        // --- MELHORIA 4: Feedback de Erro ---
+        // Se ocorrer um erro, troca a reação para "falha" e chama o gestor de erros.
+        console.error(`[AI Handler] Erro ao processar IA para ${senderJid}:`, error);
+        await sock.sendMessage(senderJid, { react: { text: '❌', key: msg.key } });
         await sendJuliaError(sock, senderJid, msg, error);
     }
 }

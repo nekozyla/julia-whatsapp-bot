@@ -1,4 +1,4 @@
-// utils.js (Versão atualizada e completa)
+// utils.js (Versão com mensagem de erro genérica aprimorada)
 const { exec, spawn } = require('child_process');
 const fs = require('fs').promises;
 const { tmpdir } = require('os');
@@ -17,21 +17,26 @@ async function sendJuliaError(sock, chatJid, originalMsg, error) {
     console.error(`[Erro Handler para ${chatJid}]: ${error.message} (Status: ${error.status || 'N/A'})`);
     console.error(error.stack); // Loga o stack completo para depuração
 
-    let friendlyMessage = `😕 Tive um probleminha: ${error.message}`;
+    let friendlyMessage = `😕 Tive um probleminha aqui e não consegui processar o seu pedido.`; // <-- Mensagem padrão melhorada
 
     // Personaliza a mensagem para erros comuns da API do Gemini
     if (error.message && error.message.includes('GoogleGenerativeAI Error')) {
         if (error.message.includes('500 Internal Server Error')) {
             // Ignora o envio para o usuário, pois é um problema temporário do servidor do Google
+            console.warn(`[Erro Handler] Erro 500 do Google, ignorando a mensagem para o utilizador.`);
             return;
         }
         if (error.message.includes('API key not valid')) {
             friendlyMessage = "🔑 Minha chave de API para o Gemini não é válida. A minha criadora precisa de verificar o ficheiro `.env`.";
         } else if (error.message.includes('quota')) {
-            friendlyMessage = " overworked.  Atingi o meu limite de pedidos à IA por enquanto. Por favor, tente novamente mais tarde.";
+            friendlyMessage = " overworked. Atingi o meu limite de pedidos à IA por enquanto. Por favor, tente novamente mais tarde.";
         }
     } else if (error.message.includes('FFMPEG')) {
         friendlyMessage = "😕 Tive um problema ao processar o ficheiro de mídia. Ele pode estar num formato que eu não consigo ler.";
+    } else {
+         // --- MELHORIA 5: Adiciona o texto do erro à mensagem genérica ---
+         // Ajuda a depurar problemas inesperados.
+         friendlyMessage = `😕 Tive um probleminha aqui: ${error.message}`;
     }
 
     try {
@@ -41,6 +46,7 @@ async function sendJuliaError(sock, chatJid, originalMsg, error) {
     }
 }
 
+// O resto do ficheiro permanece igual...
 /**
  * Extrai o texto de um objeto de mensagem, independentemente do tipo.
  * @param {object} message O objeto da mensagem do Baileys.
