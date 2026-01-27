@@ -1,6 +1,7 @@
 
 const settingsManager = require('../managers/groupSettingsManager');
 const rankManager = require('../managers/rankManager');
+const contactManager = require('../managers/contactManager');
 
 async function handleRankCommand(sock, msg, msgDetails) {
     const { sender: chatJid, commandText, commandSenderJid, isSuperAdmin } = msgDetails;
@@ -43,12 +44,12 @@ async function handleRankCommand(sock, msg, msgDetails) {
         return;
     }
 
-    
+
     const topUsers = rankManager.getTopUsers(chatJid, isFullMode ? 1000 : 10);
 
-    
+
     if (topUsers.length === 0) {
-        
+
         const isEnabled = settingsManager.getSetting(chatJid, 'rankingMode', 'off') === 'on';
         if (!isEnabled) {
             await sock.sendMessage(chatJid, { text: "O ranking está desativado neste grupo. Um admin precisa ativar com `/rank on`." });
@@ -59,20 +60,31 @@ async function handleRankCommand(sock, msg, msgDetails) {
     }
 
     let rankText = isFullMode ? `*🏆 Ranking Completo do Grupo 🏆*\n\n` : `*🏆 Ranking dos Mais Faladores do Grupo 🏆*\n\n`;
-    const mentions = [];
 
     topUsers.forEach((user, index) => {
         const jid = user.jid;
         const count = user.count;
-        const name = participants[jid] ? `(@${jid.split('@')[0]})` : '(Saiu do grupo)';
-        const medal = ['🥇', '🥈', '🥉'][index] || `*${index + 1}.*`;
-        rankText += `${medal} ${name} - *${count}* mensagens\n`;
-        if (participants[jid]) {
-            mentions.push(jid);
+
+        // Tenta pegar o nick personalizado primeiro
+        const nickname = contactManager.getNickname(jid);
+
+        let displayName;
+        if (nickname) {
+            // Se tem nick, usa o nick
+            displayName = nickname;
+        } else if (participants[jid]) {
+            // Se não tem nick mas está no grupo, usa o nome do WhatsApp
+            displayName = participants[jid].notify || jid.split('@')[0];
+        } else {
+            // Se saiu do grupo
+            displayName = '(Saiu do grupo)';
         }
+
+        const medal = ['🥇', '🥈', '🥉'][index] || `*${index + 1}.*`;
+        rankText += `${medal} ${displayName} - *${count}* mensagens\n`;
     });
 
-    await sock.sendMessage(chatJid, { text: rankText.trim(), mentions });
+    await sock.sendMessage(chatJid, { text: rankText.trim() });
 }
 
 
