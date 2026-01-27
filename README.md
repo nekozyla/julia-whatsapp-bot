@@ -60,12 +60,13 @@ nano .env
 
 Adicione suas credenciais:
 ```env
-# Spotify API (opcional - para comando /np)
+# Last.fm API (para comando /np - mostra música tocando)
+LASTFM_API_KEY=sua_lastfm_api_key
+LASTFM_USERNAME=seu_usuario_lastfm
+
+# Spotify API (opcional - para letras e informações de músicas)
 SPOTIFY_CLIENT_ID=seu_client_id
 SPOTIFY_CLIENT_SECRET=seu_client_secret
-
-# Google Gemini AI (opcional)
-GEMINI_API_KEY=sua_api_key
 
 # Outras configurações
 BOT_NAME=Julia
@@ -103,7 +104,7 @@ node index.js
 | `/audio` | `/musica`, `/mp3`, `/play` | Baixa áudio do YouTube |
 | `/video` | `/vid`, `/mp4` | Baixa vídeo do YouTube |
 | `/audioaleatorio` | `/fx`, `/sfx`, `/raudio` | Toca efeito sonoro aleatório (550+ sons!) |
-| `/np` | `/music`, `/tocando`, `/lastfm` | Mostra música tocando no Spotify |
+| `/np` | `/music`, `/tocando`, `/lastfm` | Mostra música tocando no Last.fm/Spotify com letras |
 
 ### 👤 Perfil e Social
 
@@ -196,9 +197,9 @@ node index.js
 - **[Node.js](https://nodejs.org/)** - Runtime JavaScript
 - **[Puppeteer](https://pptr.dev/)** - Geração de imagens HTML
 - **[FFmpeg](https://ffmpeg.org/)** - Processamento de mídia
+- **[Last.fm API](https://www.last.fm/api)** - Integração com Last.fm para música tocando
 - **[Spotify API](https://developer.spotify.com/)** - Integração com Spotify
-- **[Google Gemini AI](https://ai.google.dev/)** - Inteligência artificial
-- **[ytmusic-api](https://github.com/nickp10/youtube-music-api)** - Letras de músicas
+- **[ytmusic-api](https://github.com/nickp10/youtube-music-api)** - Letras de músicas do YouTube Music
 - **[Handlebars](https://handlebarsjs.com/)** - Templates HTML
 
 ---
