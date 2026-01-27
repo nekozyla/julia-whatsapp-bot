@@ -38,7 +38,7 @@ loadSettings();
 
 function normalizeJid(jid) {
     if (!jid) return '';
-    return jid.split(':')[0]; 
+    return jid.split(':')[0];
 }
 
 module.exports = {
@@ -64,11 +64,11 @@ module.exports = {
     },
     getTags: (jid) => {
         const key = normalizeJid(jid);
-        
+
         const rawTags = settingsCache[key]?.tags || [];
         return rawTags.map(tag => {
             if (typeof tag === 'string') {
-                return { text: tag, color: '#25D366' }; 
+                return { text: tag, color: '#25D366' };
             }
             return tag;
         });
@@ -78,7 +78,7 @@ module.exports = {
         if (!settingsCache[key]) settingsCache[key] = {};
         if (!settingsCache[key].tags) settingsCache[key].tags = [];
 
-        
+
         const exists = settingsCache[key].tags.some(t => {
             const existingText = typeof t === 'string' ? t : t.text;
             return existingText.toLowerCase() === tagText.toLowerCase();
@@ -121,10 +121,10 @@ module.exports = {
             const filename = `${key}_bg.jpg`;
             const filePath = path.join(backgroundsDir, filename);
 
-            
+
             await fs.writeFile(filePath, imageBuffer);
 
-            
+
             const Vibrant = require('node-vibrant');
             const v = new Vibrant(imageBuffer);
             const palette = await v.getPalette();
@@ -138,11 +138,11 @@ module.exports = {
             };
 
             settingsCache[key].customTheme = {
-                backgroundPath: filePath, 
+                backgroundPath: filePath,
                 colors: colors
             };
 
-            
+
             settingsCache[key].theme = 'custom';
 
             await saveSettings();
@@ -161,7 +161,7 @@ module.exports = {
         if (!settingsCache[key]) settingsCache[key] = {};
 
         settingsCache[key].customHtml = htmlString;
-        settingsCache[key].theme = 'builder'; 
+        settingsCache[key].theme = 'builder';
 
         await saveSettings();
         return true;
@@ -192,7 +192,7 @@ module.exports = {
         const key = normalizeJid(jid);
         return settingsCache[key]?.customHtmlBg || null;
     },
-    
+
     setBio: async (jid, text) => {
         const key = normalizeJid(jid);
         if (!settingsCache[key]) settingsCache[key] = {};
@@ -203,13 +203,13 @@ module.exports = {
         const key = normalizeJid(jid);
         return settingsCache[key]?.bio || null;
     },
-    
+
     setBirthday: async (jid, dateStr) => {
-        
+
         const key = normalizeJid(jid);
         if (!settingsCache[key]) settingsCache[key] = {};
 
-        
+
         const parts = dateStr.split('/');
         if (parts.length !== 2) return false;
 
@@ -220,7 +220,7 @@ module.exports = {
 
         settingsCache[key].birthday = { day, month };
 
-        
+
         const signs = [
             { name: 'Capricórnio', icon: '♑', end: 19 },
             { name: 'Aquário', icon: '♒', end: 18 },
@@ -237,20 +237,20 @@ module.exports = {
             { name: 'Capricórnio', icon: '♑', end: 31 }
         ];
 
-        
-        
-        
-        
-        
 
-        
-        
-        
-        
-        
 
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
 
         let sign = '';
         const m = month;
@@ -280,7 +280,7 @@ module.exports = {
             sign: settingsCache[key]?.sign
         };
     },
-    
+
     giveRep: async (senderJid, targetJid) => {
         const senderKey = normalizeJid(senderJid);
         const targetKey = normalizeJid(targetJid);
@@ -292,8 +292,7 @@ module.exports = {
 
         const now = Date.now();
         const lastRepTime = settingsCache[senderKey].lastRepGiven || 0;
-        const cooldown = 24 * 60 * 60 * 1000; 
-
+        const cooldown = 12 * 60 * 60 * 1000; // 12 horas
         if (now - lastRepTime < cooldown) {
             const remaining = cooldown - (now - lastRepTime);
             const hours = Math.floor(remaining / (1000 * 60 * 60));
@@ -301,10 +300,10 @@ module.exports = {
             return { success: false, reason: 'cooldown', time: `${hours}h ${minutes}m` };
         }
 
-        
+
         settingsCache[senderKey].lastRepGiven = now;
 
-        
+
         if (!settingsCache[targetKey].reputation) settingsCache[targetKey].reputation = 0;
         settingsCache[targetKey].reputation += 1;
 
@@ -315,7 +314,7 @@ module.exports = {
         const key = normalizeJid(jid);
         return settingsCache[key]?.reputation || 0;
     },
-    
+
     addDonation: async (jid, amount) => {
         const key = normalizeJid(jid);
         if (!settingsCache[key]) settingsCache[key] = {};
@@ -324,9 +323,9 @@ module.exports = {
         const newVal = current + amount;
 
         settingsCache[key].donation = newVal;
-        
-        
-        
+
+
+
 
         await saveSettings();
         return newVal;
@@ -336,10 +335,10 @@ module.exports = {
         return settingsCache[key]?.donation || 0;
     },
     getTopDonors: (limit = 10) => {
-        
+
         const donors = Object.entries(settingsCache)
             .map(([jid, data]) => ({
-                id: jid.includes('@') ? jid : `${jid}@s.whatsapp.net`, 
+                id: jid.includes('@') ? jid : `${jid}@s.whatsapp.net`,
                 amount: data.donation || 0
             }))
             .filter(d => d.amount > 0)
