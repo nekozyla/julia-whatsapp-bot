@@ -1,24 +1,24 @@
-// fiscalScheduler.js
+
 const fs = require('fs').promises;
 const path = require('path');
 const dayjs = require('dayjs');
 const { Sticker, StickerTypes } = require('wa-sticker-formatter');
 const settingsManager = require('./groupSettingsManager');
 
-const CHECK_INTERVAL = 60 * 1000; // Verifica a cada 1 minuto
+const CHECK_INTERVAL = 60 * 1000; 
 const FISCAL_STICKER_PATH = path.join(__dirname, 'assets', 'fiscal.webp');
 const FISCAL_MAX_SENDS_PER_DAY = 3;
 const FISCAL_MIN_HOURS_BETWEEN_SENDS = 4;
-const FISCAL_SEND_CHANCE = 1 / 240; // Aprox. 3x por dia (1 vez a cada 4 horas em média)
+const FISCAL_SEND_CHANCE = 1 / 240; 
 
 let schedulerIntervalId = null;
-let fiscalState = {}; // { 'groupId': { sentCount: 0, lastSent: timestamp } }
+let fiscalState = {}; 
 let lastResetDate = dayjs().date();
 
 async function checkAndSendFiscalSticker(sock) {
     const now = dayjs();
     
-    // Reinicia as contagens diárias à meia-noite
+    
     if (now.date() !== lastResetDate) {
         console.log('[Fiscal Scheduler] A reiniciar contagens diárias.');
         fiscalState = {};
@@ -48,7 +48,7 @@ async function checkAndSendFiscalSticker(sock) {
                 });
                 await sock.sendMessage(groupId, await sticker.toMessage());
 
-                // Atualiza o estado
+                
                 state.sentCount++;
                 state.lastSent = now.valueOf();
                 fiscalState[groupId] = state;

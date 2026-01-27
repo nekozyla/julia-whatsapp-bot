@@ -1,143 +1,253 @@
-// commands/help.js
 
-async function handleHelpCommand(sock, msg, msgDetails) {
-    const { sender } = msgDetails;
-
-    const helpText = `
-*Guia de Comandos da Julia* ✨
-
-Aqui está uma lista completa de tudo que eu posso fazer!
-
-*--- 🎨 Mídia e Criação ---*
-
-*/sticker [opções]*
-_Cria uma figurinha a partir de uma imagem ou GIF._
-- Opção \`quadrado\`: Corta a imagem para caber num quadrado.
-- Opção \`esticado\`: Estica a imagem para caber num quadrado.
-- Opção \`pack:"nome"\`: Define o nome do pacote.
-Ex: \`/sticker esticado pack:"Memes"\`
-
-*/renomear [opções]*
-_Renomeia o pacote e/ou autor de uma figurinha respondida._
-Ex: \`/renomear pack:"Meu Pack" autor:"Emily"\`
-
-*/toimage*
-_Converte uma figurinha de volta para uma imagem._
-Ex: (responda a uma figurinha com \`/toimage\`)
-
-*/meme <número> "[texto1]" "[texto2]"*
-_Cria um meme com base numa lista de templates populares._
-- Use \`/meme\` para ver a lista completa de templates.
-Ex: \`/meme 1 "Texto de cima" "Texto de baixo"\`
-
-*/brat [predefinição] [texto]*
-_Cria uma figurinha no estilo "Brat" com o seu texto._
-Ex: \`/brat deluxe club classics\`
-
-*/patpat*
-_Cria um meme 'pat-pat' com uma imagem ou figurinha._
-Ex: (responda a uma imagem com \`/patpat\`)
+const fs = require('fs');
+const path = require('path');
 
 
-*--- 📥 Downloads ---*
-
-*/audio <link>*
-_Baixa o áudio de um link (YouTube, Spotify, etc.)._
-Ex: \`/audio https://youtu.be/...\`
-
-*/video <link>*
-_Baixa um vídeo de um link (YouTube, etc.)._
-Ex: \`/video https://youtu.be/...\`
-
-
-*--- 🎉 Diversão e Interação ---*
-
-*/casar | /casamento | /aceitar | /divorcio | /casados*
-_Sistema de casamento poliamoroso do grupo._
-- \`/casar @pessoa\`: Pede alguém em casamento.
-- \`/casamento\`: Mostra com quem você está casado(a).
-- \`/aceitar\`: Aceita um pedido pendente.
-- \`/divorcio @pessoa\`: Termina o seu casamento com uma pessoa específica.
-- \`/casados\`: Mostra a lista de todos os casamentos do grupo.
-- \`/casar --force @p1 @p2\`: (Admin) Casa dois membros à força.
-
-*/np [usuário]*
-_Mostra o que você ou outro usuário está a ouvir no Last.fm._
-- Use \`/np set <seu_nick>\` para definir o seu perfil.
-Ex: \`/np nekozylajs\` ou simplesmente \`/np\`
-
-*/top [assunto]*
-_Cria um ranking aleatório com 10 pessoas do grupo._
-Ex: \`/top mais legais do grupo\`
-
-*/shipp [@pessoa1] [@pessoa2]*
-_Calcula a compatibilidade entre duas pessoas._
-Ex: \`/shipp @Amigo1 @Amiga2\`
-
-*/gado [@pessoa]*
-_Mede o seu nível de 'gado' ou o de alguém que você marcar._
-Ex: \`/gado @Amigo\`
+const categoryConfig = {
+    'midia': { title: '🎨 Mídia e Stickers', emoji: '🎨' },
+    'downloads': { title: '📥 Downloads', emoji: '📥' },
+    'diversao': { title: '🎉 Diversão e Interação', emoji: '🎉' },
+    'util': { title: '⚙️ Utilitários', emoji: '⚙️' },
+    'admin': { title: '👑 Administração', emoji: '👑' },
+    'super': { title: '🔒 Super Admin', emoji: '🔒' },
+    'outros': { title: '📦 Outros', emoji: '📦' }
+};
 
 
-*--- 🤖 IA e Utilitários ---*
-
-*/ia [on/off]*
-_Ativa ou desativa a minha personalidade de conversa neste chat._
-Ex: \`/ia on\`
-
-*/persona [nome]*
-_Muda a minha personalidade (opções: julia, emilia, maria)._
-Ex: \`/persona emilia\`
-
-*/pergunta [texto]*
-_Faz uma pergunta direta à minha base de conhecimento._
-Ex: \`/pergunta qual a capital da Mongólia\`
-
-*/transcrever*
-_Transcreve o conteúdo de uma mensagem de áudio respondida._
-
-*/report [mensagem]*
-_Envia uma mensagem de sugestão ou bug para meu desenvolvedor._
-Ex: \`/report o comando /sticker não funciona com vídeos\`
+const categoryAliases = {
+    'jogos': 'diversao', 'fun': 'diversao',
+    'adm': 'admin', 'admins': 'admin', 'grupo': 'admin',
+    'media': 'midia', 'sticker': 'midia', 'fig': 'midia',
+    'utils': 'util', 'ferramentas': 'util',
+    'dono': 'super', 'dev': 'super'
+};
 
 
-*--- ⚙️ Utilidades e Modos ---*
-_(Alguns modos só podem ser ativados por admins em grupos)_
+const legacyHelpData = {
+    'midia': [
+        { cmd: '/sticker', desc: 'Cria figurinha (img/video/gif).' },
+        { cmd: '/stickerpreset', desc: 'Configura presets de stickers.' },
+        { cmd: '/renomear', desc: 'Renomeia pacote/autor de figurinha.' },
+        { cmd: '/toimage', desc: 'Converte figurinha para imagem.' },
+        { cmd: '/meme', desc: 'Cria meme.' },
+        { cmd: '/brat', desc: 'Cria figurinha estilo Brat.' },
+        { cmd: '/fritar', desc: 'Aplica efeito deep fry.' },
+        { cmd: '/lowres', desc: 'Reduz qualidade da imagem.' },
+        { cmd: '/removebg', desc: 'Remove fundo da imagem.' }
+    ],
+    'downloads': [
+        { cmd: '/audio', desc: 'Baixa áudio (YouTube, Spotify, etc).' },
+        { cmd: '/video', desc: 'Baixa vídeo (YouTube, etc).' }
+    ],
+    'diversao': [
+        { cmd: '/casar', desc: 'Sistema de casamento.' },
+        { cmd: '/adotar', desc: 'Adota um filho(a).' },
+        { cmd: '/familia', desc: 'Mostra árvore genealógica.' },
+        { cmd: '/combate', desc: 'Inicia combate RPG.' },
+        { cmd: '/aura', desc: 'Mede a aura (+/-).' },
+        { cmd: '/dado', desc: 'Rola um dado.' },
+        { cmd: '/moeda', desc: 'Cara ou coroa.' },
+        { cmd: '/sortear', desc: 'Sorteia membros.' },
+        { cmd: '/np', desc: 'Mostra o que está ouvindo.' },
+        { cmd: '/top', desc: 'Ranking aleatório.' },
+        { cmd: '/shipp', desc: 'Calcula compatibilidade.' },
+        { cmd: '/gado', desc: 'Mede nível de gado.' },
+        { cmd: '/dna', desc: 'Teste de paternidade.' },
+        { cmd: '/suicidio', desc: 'Sai do grupo.' },
+        { cmd: '/lutar', desc: 'Desafia para PvP.' },
+        { cmd: '/aceitarluta', desc: 'Aceita desafio PvP.' }
+    ],
+    'util': [
+        { cmd: '/transcrever', desc: 'Transcreve áudio.' },
+        { cmd: '/hora', desc: 'Mostra hora atual.' },
+        { cmd: '/ping', desc: 'Verifica latência.' },
+        { cmd: '/report', desc: 'Envia report ao dev.' },
+    ]
+};
 
-*/modosticker [on/off]*
-_Converte toda imagem/gif enviado no chat em figurinha._
-
-*/modomeme [on/off]*
-_Reage a todas as mensagens com emojis aleatórios._
-
-*/modotomate [on/off]*
-_Reage com um 🍅 a mensagens consideradas polémicas._
-
-*/modotranscricao [on/off]*
-_Transcreve todos os áudios enviados no chat._
-
-*/fiscalizar [on/off]*
-_Envia uma figurinha de "fiscalização" aleatoriamente no grupo._
+const aliasesConfig = require('../../config/aliases.js');
 
 
-*--- 👑 Comandos de Admin de Grupo ---*
+const commandValues = Object.values(aliasesConfig);
+const commandKeys = Object.keys(aliasesConfig);
+const aliasMap = {};
 
-*/todos [mensagem]*
-_Menciona todos os membros do grupo._
+commandValues.forEach((cmd, index) => {
+    if (!aliasMap[cmd]) aliasMap[cmd] = [];
+    aliasMap[cmd].push(commandKeys[index]);
+});
 
-*/remover [@pessoa]*
-_Remove um membro do grupo._
 
-*/jid*
-_Mostra o JID (ID) do grupo ou do usuário._
-`;
+if (legacyHelpData['util']) {
+    legacyHelpData['util'] = legacyHelpData['util'].filter(c => c.cmd !== '/agrandejulia');
+}
 
-    try {
-        await sock.sendMessage(sender, { text: helpText.trim() });
-    } catch (error) {
-        console.error("[Help] Erro ao enviar a mensagem de ajuda:", error);
+
+function loadCommandsMetadata() {
+    const commandsDir = __dirname;
+    const files = fs.readdirSync(commandsDir).filter(f => f.endsWith('.js') && f !== 'help.js');
+    const dynamicData = {};
+
+    for (const file of files) {
+        try {
+            const filePath = path.join(commandsDir, file);
+
+            delete require.cache[require.resolve(filePath)];
+            const cmdModule = require(filePath);
+
+
+            if (cmdModule.commandData) {
+                const data = cmdModule.commandData;
+
+
+                if (data.hidden) continue;
+
+                const category = data.category || 'outros';
+
+                if (!dynamicData[category]) dynamicData[category] = [];
+
+                dynamicData[category].push({
+                    cmd: data.usage || `/${data.name}`,
+                    desc: data.description || 'Sem descrição.',
+                    name: data.name,
+                    aliases: data.aliases || []
+                });
+            }
+        } catch (e) {
+            console.error(`[Help] Erro ao ler metadados de ${file}:`, e.message);
+        }
+    }
+    return dynamicData;
+}
+
+
+function findCommandMetadata(commandName, dynamicCommands) {
+    const cleanName = commandName.replace(/^\//, '');
+
+    for (const cat in dynamicCommands) {
+        const cmd = dynamicCommands[cat].find(c => c.name === cleanName || c.aliases?.includes(`/${cleanName}`) || c.aliases?.includes(cleanName));
+        if (cmd) return { ...cmd, category: cat };
     }
 
+
+    for (const cat in legacyHelpData) {
+        const cmd = legacyHelpData[cat].find(c => c.cmd.startsWith(`/${cleanName}`));
+        if (cmd) return { name: cleanName, cmd: cmd.cmd, desc: cmd.desc, category: cat, isLegacy: true };
+    }
+
+    return null;
+}
+
+async function handleHelpCommand(sock, msg, msgDetails) {
+    const { sender, commandText, prefix } = msgDetails;
+
+
+    const args = commandText.split(' ').slice(1);
+    const query = args[0]?.toLowerCase();
+
+
+    const dynamicCommands = loadCommandsMetadata();
+
+
+    const mergedData = { ...legacyHelpData };
+
+    for (const [cat, cmds] of Object.entries(dynamicCommands)) {
+        if (!mergedData[cat]) mergedData[cat] = [];
+        cmds.forEach(newCmd => {
+
+            const existsIndex = mergedData[cat].findIndex(c => c.cmd.split(' ')[0] === `/${newCmd.name}`);
+            if (existsIndex !== -1) {
+                mergedData[cat][existsIndex] = newCmd;
+            } else {
+                mergedData[cat].push(newCmd);
+            }
+        });
+    }
+
+
+    if (!query) {
+        let text = `🤖 *Central de Ajuda da Julia* 🤖\n\n`;
+        text += `Use \`${prefix}help <categoria>\` para ver listas ou \`${prefix}help <comando>\` para detalhes específicos.\n\n`;
+
+        const order = ['midia', 'diversao', 'util', 'downloads', 'admin', 'super'];
+        const existingCategories = Object.keys(mergedData);
+
+        [...order, ...existingCategories.filter(c => !order.includes(c))].forEach(catKey => {
+            if (mergedData[catKey] && mergedData[catKey].length > 0) {
+                const catInfo = categoryConfig[catKey] || { title: catKey, emoji: '📂' };
+                text += `> ${catInfo.emoji} *${prefix}help ${catKey}* (${mergedData[catKey].length})\n`;
+            }
+        });
+
+        text += `\n💡 _Exemplo: ${prefix}help midia_`;
+        await sock.sendMessage(sender, { text: text.trim() }, { quoted: msg });
+        return true;
+    }
+
+
+    const targetCategory = categoryAliases[query] || query;
+    if (mergedData[targetCategory]) {
+        const catInfo = categoryConfig[targetCategory] || { title: targetCategory.toUpperCase(), emoji: '📂' };
+        const commands = mergedData[targetCategory];
+
+        let text = `*${catInfo.title}* ${catInfo.emoji}\n\n`;
+        commands.forEach(c => {
+
+            let aliases = c.aliases || [];
+            if (aliases.length === 0) {
+                const cmdName = c.cmd.split(' ')[0];
+                if (aliasMap[cmdName]) {
+                    aliases = aliasMap[cmdName];
+                }
+            }
+
+            const aliasText = aliases.length > 0 ? ` (ou: ${aliases.join(', ')})` : '';
+
+
+
+            text += `🔹 *${c.cmd}*${aliasText}\n   _${c.desc}_\n`;
+        });
+
+        text += `\n_Digite ${prefix}help <comando> para mais detalhes._`;
+        await sock.sendMessage(sender, { text: text.trim() }, { quoted: msg });
+        return true;
+    }
+
+
+    const cmdDetails = findCommandMetadata(query, dynamicCommands);
+    if (cmdDetails) {
+        const catEmoji = categoryConfig[cmdDetails.category]?.emoji || '🔧';
+
+        let text = `*Detalhes do Comando* ${catEmoji}\n\n`;
+        text += `📝 *Comando:* \`/${cmdDetails.name}\`\n`;
+        text += `📂 *Categoria:* ${cmdDetails.category}\n`;
+        text += `📄 *Descrição:* ${cmdDetails.desc}\n`;
+        text += `⌨️ *Uso:* \`${cmdDetails.cmd}\`\n`;
+
+
+        let aliases = cmdDetails.aliases || [];
+        const cmdName = `/${cmdDetails.name}`;
+        if (aliasMap[cmdName]) {
+
+            aliasMap[cmdName].forEach(a => {
+                if (!aliases.includes(a)) aliases.push(a);
+            });
+        }
+
+        if (aliases && aliases.length > 0) {
+            text += `🖇️ *Apelidos:* ${aliases.join(', ')}\n`;
+        }
+
+        if (cmdDetails.isLegacy) {
+            text += `\n_ℹ️ Este comando ainda não foi migrado para o novo sistema de ajuda, então as informações podem ser básicas._`;
+        }
+
+        await sock.sendMessage(sender, { text: text.trim() }, { quoted: msg });
+        return true;
+    }
+
+
+    await sock.sendMessage(sender, { text: `❌ Não encontrei a categoria ou comando "${query}". Tente \`${prefix}help\` para ver o menu.` }, { quoted: msg });
     return true;
 }
 

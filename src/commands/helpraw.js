@@ -1,17 +1,17 @@
-// commands/helpraw.js
+
 const fs = require('fs');
 const path = require('path');
-const { sendJuliaError } = require('../utils/utils.js'); // Reutilizando a função de erro
+const { sendJuliaError } = require('../utils/utils.js'); 
 
 async function handleHelpRawCommand(sock, msg, msgDetails) {
     const { sender } = msgDetails;
 
     try {
-        // O '__dirname' é uma variável especial do Node.js que representa
-        // o diretório do arquivo atual (neste caso, a pasta 'commands').
-        const commandDir = __dirname;
         
-        // Lê todos os arquivos do diretório de forma síncrona
+        
+        const commandDir = __dirname;
+
+        
         const commandFiles = fs.readdirSync(commandDir).filter(file => file.endsWith('.js'));
 
         if (commandFiles.length === 0) {
@@ -19,9 +19,9 @@ async function handleHelpRawCommand(sock, msg, msgDetails) {
             return true;
         }
 
-        // Mapeia a lista de nomes de arquivo para uma lista de comandos
+        
         const commandList = commandFiles.map(file => {
-            // Remove a extensão '.js' do nome do arquivo e adiciona '!' no início
+            
             return `!${path.basename(file, '.js')}`;
         });
 
@@ -31,11 +31,20 @@ async function handleHelpRawCommand(sock, msg, msgDetails) {
 
     } catch (error) {
         console.error("[HelpRaw] Erro ao ler a pasta de comandos:", error);
-        // Usa a função de erro padronizada que criamos
+        
         await sendJuliaError(sock, sender, msg, error);
     }
 
-    return true; // Indica que o comando foi processado
+    return true; 
 }
 
 module.exports = handleHelpRawCommand;
+
+
+module.exports.commandData = {
+    name: "helpraw",
+    description: "Sem descrição disponível.",
+    category: "util",
+    usage: "/helpraw",
+    aliases: []
+};

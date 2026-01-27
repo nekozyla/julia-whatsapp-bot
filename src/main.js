@@ -1,264 +1,372 @@
-// main.js (Versão com a estrutura de ficheiros atualizada)
+require('dotenv').config();
 
-const { makeWASocket, useMultiFileAuthState, getContentType, DisconnectReason } = require('@whiskeysockets/baileys');
-const { Boom } = require('@hapi/boom');
+
+const { makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
 const pino = require('pino');
-const fs = require('fs').promises;
-const { readdirSync } = require('fs');
 const path = require('path');
 const qrcode = require('qrcode-terminal');
+const fs = require('fs').promises;
+const { initializeModules, loadCommands } = require('./loader.js');
+const { processMessage } = require('./messageHandler.js');
 
-// --- CAMINHOS ATUALIZADOS ---
-// Módulos de configuração
-const config = require('../config/config.js');
-const aliases = require('../config/aliases.js');
 
-// Módulos de gestão (Managers)
-const sessionManager = require('./managers/sessionManager.js');
-const conversationalHandlers = require('./managers/messageHandlers.js');
-const fiscalScheduler = require('./managers/fiscalScheduler.js');
+
 const settingsManager = require('./managers/groupSettingsManager.js');
-const contactManager = require('./managers/contactManager.js');
 const authManager = require('./managers/authManager.js');
-const systemStateManager = require('./managers/systemStateManager.js');
-const profanityManager = require('./managers/profanityManager.js');
-const rejectionManager = require('./managers/rejectionManager.js');
+const groupMetadataManager = require('./managers/groupMetadataManager.js');
 
-// Módulos de utilidade
-const { getTextFromMsg } = require('./utils/utils.js');
 
-// Handlers de comandos especiais
-let stickerCommandHandler; 
-try {
-    stickerCommandHandler = require('./commands/sticker.js');
-} catch (e) {
-    console.warn("[StickerMode] O comando 'sticker.js' não foi encontrado. O Modo Sticker não funcionará.");
-    stickerCommandHandler = null;
-}
-const rankHandler = require('./commands/rank.js');
+const AUTH_FILE_PATH = path.join(__dirname, '..', 'auth_info');
+const BOT_JID_CACHE_PATH = path.join(__dirname, '..', 'data', 'bot_jid_cache.json');
+let botJidCache = {};
+let sock;
 
-// --- CAMINHOS DE DADOS E AUTENTICAÇÃO ATUALIZADOS ---
-const MESSAGE_STORE_PATH = path.join(__dirname, '..', 'data', 'message_store.json');
-const AUTH_FILE_PATH = path.join(__dirname, '..', 'auth_info'); // Aponta para a nova pasta de autenticação
 
-let messageStore = {};
+const messageStore = new Map();
 
-async function loadMessageStore() {
-    try {
-        const data = await fs.readFile(MESSAGE_STORE_PATH, 'utf-8');
-        messageStore = JSON.parse(data);
-        console.log('[Store] Armazenamento de mensagens persistente carregado.');
-    } catch (e) {
-        console.log('[Store] Arquivo de armazenamento de mensagens não encontrado, iniciando um novo.');
-        messageStore = {};
-    }
-}
 
-async function saveMessageStore() {
-    try {
-        await fs.writeFile(MESSAGE_STORE_PATH, JSON.stringify(messageStore, null, 2));
-    } catch (e) {
-        console.error('[Store] Falha ao salvar o armazenamento de mensagens:', e);
-    }
-}
 
-function loadCommands() {
-    const commandMap = {};
-    // O caminho para a pasta de comandos agora parte de 'src'
-    const commandDir = path.join(__dirname, 'commands');
-    try {
-        const commandFiles = readdirSync(commandDir).filter(file => file.endsWith('.js'));
-        console.log(`[Comandos] Encontrados ${commandFiles.length} arquivos de comando...`);
-        for (const file of commandFiles) {
-            try {
-                const commandName = `/${path.basename(file, '.js')}`;
-                const handler = require(path.join(commandDir, file));
-                if (typeof handler === 'function') {
-                    commandMap[commandName] = handler;
-                }
-            } catch (error) { console.error(`[Comandos] Erro ao carregar ${file}:`, error); }
-        }
-        for (const alias in aliases) {
-            if (commandMap[aliases[alias]]) {
-                commandMap[alias] = commandMap[aliases[alias]];
-            }
-        }
-    } catch (error) { console.error("[Comandos] Erro ao ler a pasta de comandos:", error); }
-    return commandMap;
-}
 
 async function startJulia() {
+    await initializeModules();
     const commandMap = loadCommands();
-    await loadMessageStore();
-    authManager.loadAllowedContacts();
-    authManager.loadAllowedGroups();
-    rejectionManager.loadLog();
-    
-    await settingsManager.loadSettings();
-    await contactManager.loadContacts();
-    await sessionManager.loadAllPersistedSessions();
-    await systemStateManager.loadState();
-    await profanityManager.loadProfanityList();
-    
+
+    try {
+        const data = await fs.readFile(BOT_JID_CACHE_PATH, 'utf-8');
+        botJidCache = JSON.parse(data);
+    } catch (e) {
+        console.log('[Main] Arquivo de cache de JIDs não encontrado, iniciando um novo.');
+    }
+
     const { state, saveCreds } = await useMultiFileAuthState(AUTH_FILE_PATH);
-    const sock = makeWASocket({ auth: state, logger: pino({ level: 'warn' }), browser: ['Julia Bot', 'Chrome', '20.0.0'] });
+    const { version } = await fetchLatestBaileysVersion();
+
+    sock = makeWASocket({ 
+        version,
+        auth: state,
+        logger: pino({ level: 'error' }),
+        browser: ['Julia Bot', 'Chrome', '20.0.0'],
+        markOnlineOnConnect: false
+    });
+
+
 
     sock.ev.on('creds.update', saveCreds);
+
+    const voteManager = require('./managers/voteManager.js');
 
     sock.ev.on('messages.upsert', async ({ messages }) => {
         const msg = messages[0];
 
-        if (msg.message?.protocolMessage?.type === 'REVOKE') {
-            const groupJid = msg.key.remoteJid;
-            const revealMode = settingsManager.getSetting(groupJid, 'revealDeletedMode', 'off');
-            if (revealMode === 'on' && msg.key.participant) {
-                const originalMsgId = msg.message.protocolMessage.key.id;
-                const originalMsg = messageStore[originalMsgId];
-                if (originalMsg) {
-                    const senderName = originalMsg.pushName || 'Alguém';
-                    try {
-                        const responseText = `🤫 *${senderName}* apagou esta mensagem:`;
-                        await sock.sendMessage(groupJid, { forward: originalMsg }, { caption: responseText, mentions: [originalMsg.key.participant] });
-                    } catch (e) { console.error("[Modo Revelar] Erro ao reenviar mensagem:", e); }
-                }
-            }
+
+
+        const type = Object.keys(msg.message || {})[0];
+
+        if (type === 'reactionMessage') {
+            
+            voteManager.handleReaction(msg);
             return;
         }
+
         
-        if (msg.message) {
-            messageStore[msg.key.id] = msg;
-            await saveMessageStore();
-            setTimeout(async () => {
-                if (messageStore[msg.key.id]) {
-                    delete messageStore[msg.key.id];
-                    await saveMessageStore();
-                }
-            }, 3600 * 1000);
-        }
+        await processMessage(sock, msg, commandMap, botJidCache, messageStore);
+    });
 
-        if (!msg.message || msg.key.fromMe) return;
+    
 
-        try {
-            const senderJid = msg.key.remoteJid;
-            const authorJid = msg.key.participant || senderJid;
-            const isGroup = senderJid.endsWith('@g.us');
-            
-            const isAuthorSuperAdmin = config.ADMIN_JIDS.includes(authorJid);
+    
 
-            if (!isAuthorSuperAdmin) {
-                if (!authManager.isGroupAllowed(senderJid) && !authManager.isContactAllowed(authorJid)) {
-                    if (rejectionManager.shouldSendRejection(authorJid)) {
-                        const rejectionMessage = `Olá! Sou a Julia. 😊\n\nNotei que você tentou interagir comigo, mas só tenho permissão para funcionar em grupos autorizados ou no meu canal de novidades.\n\n🔗 *Entre no nosso grupo principal para conversar e usar todos os meus comandos:*\nhttps://chat.whatsapp.com/G6yvFKyWglbCcCLZxRPPHw\n\n📢 *Siga meu canal para ficar por dentro das atualizações:*\nhttps://whatsapp.com/channel/0029Vb6C238CxoAwXrkEXe1E\n\nTe vejo lá! 😉`;
-                        await sock.sendMessage(authorJid, { text: rejectionMessage });
-                        rejectionManager.recordRejectionSent(authorJid);
-                    }
-                    return;
-                }
-            }
-            
-            const isRankingOn = settingsManager.getSetting(senderJid, 'rankingMode', 'off');
-            if (isGroup && isRankingOn === 'on') {
-                rankHandler.incrementCount(senderJid, authorJid);
-            }
-            
-            let textContent = getTextFromMsg(msg.message);
-            const pushName = msg.pushName || 'alguém';
-            const messageType = getContentType(msg.message);
+    
+    sock.ev.on('messages.update', async (updates) => {
+        
+        
 
-            if (systemStateManager.isMaintenanceMode() && !isAuthorSuperAdmin) return;
+        for (const update of updates) {
             
-            if (isGroup && textContent) {
-                const tomatoMode = settingsManager.getSetting(senderJid, 'tomatoMode', 'on');
-                if (tomatoMode === 'on' && profanityManager.analyzeMessage(textContent)) {
-                    sock.sendMessage(senderJid, { react: { text: '🍅', key: msg.key } }).catch(e => {});
-                }
-            }
             
-            if (isGroup) {
-                const isChatRestricted = settingsManager.getSetting(senderJid, 'chatRestricted', 'off');
-                if (isChatRestricted === 'on' && textContent && !textContent.startsWith('/')) {
-                    const alertMessage = `Este grupo é apenas para comandos. 🤫\n\nPara conversar, por favor, entre no nosso grupo de bate-papo:\nhttps://chat.whatsapp.com/Kls65TTEI67Jv8Xv6lpFjL`;
-                    await sock.sendMessage(senderJid, { text: alertMessage });
-                    return;
-                }
-            }
-            
-            let commandToRun = null;
-            if (textContent?.startsWith('/')) {
-                const commandKey = textContent.split(' ')[0].toLowerCase();
-                if (commandMap[commandKey]) {
-                    commandToRun = commandKey;
-                }
-            }
-            
-            const msgDetails = { 
-                sender: senderJid, pushName, command: commandToRun, commandText: textContent, 
-                messageType: messageType, isGroup, quotedMsgInfo: msg.message.extendedTextMessage?.contextInfo?.quotedMessage, 
-                commandSenderJid: authorJid, 
-                isSuperAdmin: isAuthorSuperAdmin 
-            };
+            if (update.key && update.update?.message === null) {
+                const msgId = update.key.id;
+                const chatJid = update.key.remoteJid;
 
-            if (commandToRun) {
-                if (isGroup) {
-                    const restrictedCommands = settingsManager.getSetting(senderJid, 'restrictedCommands', []);
-                    if (restrictedCommands.includes(commandToRun) && !isAuthorSuperAdmin) {
-                        await sock.sendMessage(senderJid, { text: `🚫 O uso do comando \`${commandToRun}\` foi desativado neste grupo.` }, { quoted: msg });
-                        return;
-                    }
+                
+                if (settingsManager.getSetting(chatJid, 'antiDeleteMode', 'off') !== 'on') {
+                    continue; 
                 }
-                await commandMap[commandToRun](sock, msg, msgDetails);
-                return;
+
+                
+                const deletedMsg = messageStore.get(msgId);
+                if (deletedMsg) {
+                    console.log(`[AntiDelete] Mensagem ${msgId} apagada em ${chatJid}. Reenviando...`);
+
+                    
+                    const authorJid = deletedMsg.key.participant;
+                    const authorName = deletedMsg.pushName || 'Alguém';
+
+                    
+                    
+                    const antiDeleteHeader = `🚫 ${authorName} (@${authorJid.split('@')[0]}) apagou a mensagem:`;
+
+                    
+                    await sock.sendMessage(chatJid, {
+                        text: antiDeleteHeader,
+                        mentions: [authorJid]
+                    });
+
+                    
+                    
+                    await sock.sendMessage(chatJid, {
+                        forward: deletedMsg
+                    });
+
+                    
+                    messageStore.delete(msgId);
+                }
             }
-            
-            const stickerMode = settingsManager.getSetting(senderJid, 'stickerMode', 'off');
-            if (stickerMode === 'on' && stickerCommandHandler && (messageType === 'imageMessage' || messageType === 'videoMessage')) {
-                console.log(`[Modo Sticker] Convertendo mídia automaticamente no chat: ${senderJid}`);
-                const stickerMsgDetails = { ...msgDetails, command: '/sticker', commandText: '/sticker' };
-                await stickerCommandHandler(sock, msg, stickerMsgDetails);
-                return; 
-            }
-            
-            const botJid = sock.user.id.split(':')[0] + '@s.whatsapp.net';
-            const mentions = msg.message.extendedTextMessage?.contextInfo?.mentionedJid || [];
-            const isReplyingToBot = msg.message.extendedTextMessage?.contextInfo?.participant === botJid;
-            let juliaShouldRespond = !isGroup || mentions.includes(botJid) || isReplyingToBot;
-            
-            const aiMode = settingsManager.getSetting(senderJid, 'aiMode', 'on');
-            if (juliaShouldRespond && aiMode !== 'on') return;
-            
-            if (juliaShouldRespond) {
-                const chatSession = await sessionManager.getOrCreateChatForSession(senderJid);
-                await sock.sendPresenceUpdate('composing', senderJid);
-                const msgDetailsForHandler = { sender: senderJid, pushName, currentMessageText: textContent, messageType: getContentType(msg.message) };
-                await conversationalHandlers.handleAnyMessage(sock, msg, chatSession, msgDetailsForHandler, sessionManager, commandMap);
-            }
-            
-        } catch (error) {
-            console.error("[Erro Final] A ação falhou:", error);
         }
     });
+    
+
+    const groupMetadataManager = require('./managers/groupMetadataManager.js');
+
+    
+
+    
+    sock.ev.on('group-participants.update', async (update) => {
+        const { id, participants, action } = update;
+
+        if (action === 'add') {
+            try {
+                
+                const rawBotJid = sock.user?.id;
+                const botJid = rawBotJid?.replace(/:[0-9]+/, '');
+
+                const normalizedParticipants = participants.map(p => (typeof p === 'string' ? p : p.id));
+
+                const isBotAdded = normalizedParticipants.some(p => p && p.includes(botJid));
+
+                if (isBotAdded) {
+                    const groupMetadata = await groupMetadataManager.getGroupMetadata(sock, id);
+                    const groupName = groupMetadata?.subject || 'Grupo';
+                    const actualCount = groupMetadata?.participants?.length || 0;
+                    const MIN_MEMBERS = 10; 
+
+                    if (authManager.isGroupAllowed(id)) {
+                        console.log(`[AutoJoin] Entrando em grupo ${groupName} (whitelisted).`);
+                        await sock.sendMessage(id, { text: "Olá! Obrigado por me adicionarem. Estou pronta para uso! 💖" });
+                    } else if (actualCount < MIN_MEMBERS) {
+                        console.log(`[AutoJoin] Grupo ${groupName} muito pequeno (${actualCount}). Iniciando timer de saída.`);
+                        await sock.sendMessage(id, { text: "⚠️ *Grupo Pequeno Demais*\n\nOlá! Eu só funciono em grupos com **10 ou mais membros**.\n\nVou sair em **1 minuto**, a menos que este grupo receba mais membros ou um Super Admin me autorize usando o comando `/adicionar`." });
+
+                        setTimeout(async () => {
+                            
+                            if (authManager.isGroupAllowed(id)) {
+                                await sock.sendMessage(id, { text: "✅ O grupo foi autorizado! Vou ficar. 💖" });
+                                return;
+                            }
+
+                            try {
+                                
+                                const freshMeta = await sock.groupMetadata(id);
+                                if (freshMeta.participants.length >= MIN_MEMBERS) {
+                                    await sock.sendMessage(id, { text: "✅ O grupo atingiu a meta de membros! Vou ficar. 💖" });
+                                    return;
+                                }
+
+                                await sock.sendMessage(id, { text: "⏰ O tempo acabou e o grupo ainda não cumpre os requisitos. Saindo... 👋" });
+                                await new Promise(r => setTimeout(r, 1500));
+                                await sock.groupLeave(id);
+                            } catch (e) {
+                                console.error('[AutoLeaveTimer] Erro ao sair:', e);
+                            }
+                        }, 60000);
+                    } else {
+                        console.log(`[AutoJoin] Entrando em grupo ${groupName} (${actualCount} membros).`);
+                        await sock.sendMessage(id, { text: "Olá! Obrigado por me adicionarem. Estou pronta para uso! 💖" });
+                    }
+                }
+                
+
+                
+                const welcomeMode = settingsManager.getSetting(id, 'welcomeMode', 'off');
+                if (welcomeMode !== 'on') return;
+
+                
+                let welcomeMessage = settingsManager.getSetting(id, 'welcomeMessage', 'Olá @user, bem-vindo(a) ao @group!');
+
+                
+                const groupMetadata = await groupMetadataManager.getGroupMetadata(sock, id);
+                if (!groupMetadata) return;
+
+                const groupName = groupMetadata.subject;
+                const groupDesc = groupMetadata.desc || '';
+
+                
+                welcomeMessage = welcomeMessage.replace(/@group/g, groupName);
+                welcomeMessage = welcomeMessage.replace(/@desc/g, groupDesc);
+
+                
+                for (const item of participants) {
+                    
+                    const participantJid = typeof item === 'string' ? item : item?.id;
+
+                    
+                    if (participantJid.includes(sock.user?.id?.replace(/:[0-9]+/, ''))) continue;
+
+                    if (!participantJid || typeof participantJid !== 'string') {
+                        console.warn("[Welcome] Participante inválido encontrado:", item);
+                        continue;
+                    }
+
+                    
+                    const finalMessage = welcomeMessage.replace(/@user/g, `@${participantJid.split('@')[0]}`);
+
+                    await sock.sendMessage(id, {
+                        text: finalMessage,
+                        mentions: [participantJid]
+                    });
+                }
+            } catch (e) {
+                console.error("[Welcome] Erro ao enviar boas-vindas:", e);
+            }
+        }
+    });
+    
+
+
+    
+    sock.ev.on('groups.upsert', async (groups) => {
+        for (const group of groups) {
+            try {
+                const id = group.id;
+                
+                const groupMetadata = await groupMetadataManager.getGroupMetadata(sock, id);
+                if (!groupMetadata) continue;
+
+                const participantCount = groupMetadata.participants.length;
+
+                const groupName = groupMetadata?.subject || 'Grupo';
+                const actualCount = groupMetadata?.participants?.length || 0;
+                const MIN_MEMBERS = 10;
+
+                if (authManager.isGroupAllowed(id)) {
+                    console.log(`[AutoCheck] Grupo ${groupName} (whitelisted).`);
+                } else if (actualCount < MIN_MEMBERS) {
+                    console.log(`[AutoCheck] Grupo ${groupName} muito pequeno (${actualCount}). Iniciando timer de saída.`);
+                    await sock.sendMessage(id, { text: "⚠️ *Grupo Pequeno Demais*\n\nOlá! Eu só funciono em grupos com **10 ou mais membros**.\n\nVou sair em **1 minuto**, a menos que este grupo receba mais membros ou um Super Admin me autorize usando o comando `/adicionar`." });
+
+                    setTimeout(async () => {
+                        if (authManager.isGroupAllowed(id)) {
+                            await sock.sendMessage(id, { text: "✅ O grupo foi autorizado! Vou ficar. 💖" });
+                            return;
+                        }
+
+                        try {
+                            const freshMeta = await sock.groupMetadata(id);
+                            if (freshMeta.participants.length >= MIN_MEMBERS) {
+                                await sock.sendMessage(id, { text: "✅ O grupo atingiu a meta de membros! Vou ficar. 💖" });
+                                return;
+                            }
+
+                            await sock.sendMessage(id, { text: "⏰ O tempo acabou e o grupo ainda não cumpre os requisitos. Saindo... 👋" });
+                            await new Promise(r => setTimeout(r, 1500));
+                            await sock.groupLeave(id);
+                        } catch (e) {
+                            console.error('[AutoLeaveTimer] Erro ao sair:', e);
+                        }
+                    }, 60000);
+                } else {
+                    console.log(`[AutoCheck] Grupo ${groupName} OK (${actualCount} membros).`);
+                }
+            } catch (err) {
+                console.error('[AutoLeave] Erro ao processar groups.upsert:', err);
+            }
+        }
+    });
+    
 
     sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect, qr } = update;
-        if (qr) {
-            console.log('📲 Escaneie o QR code abaixo para conectar:\n');
-            qrcode.generate(qr, { small: true });
-        }
+        if (qr) qrcode.generate(qr, { small: true });
+
         if (connection === 'open') {
             console.log('✅ Julia conectada ao WhatsApp!');
-            fiscalScheduler.initializeFiscalScheduler(sock);
+
+            
+            (async () => {
+                try {
+                    console.log('[Startup] Verificando grupos para aplicar limite mínimo de 10 membros...');
+                    const groups = await sock.groupFetchAllParticipating();
+                    const groupIds = Object.keys(groups);
+
+                    for (const id of groupIds) {
+                        const group = groups[id];
+                        
+                        if (!id.endsWith('@g.us')) continue;
+
+                        const memberCount = group.participants ? group.participants.length : 0;
+
+                        if (memberCount < 10) {
+                            if (authManager.isGroupAllowed(id)) {
+                                console.log(`[Startup] Grupo ${group.subject || id} é pequeno (${memberCount}), mas está na whitelist. Mantendo.`);
+                                continue;
+                            }
+                            console.log(`[Startup] Saindo do grupo ${group.subject || id} (Menos de 10 membros: ${memberCount})`);
+                            try {
+                                await sock.sendMessage(id, { text: '⚠️ *Aviso de Limite:*\n\nOlá! Para garantir a qualidade do serviço, agora eu só funciono em grupos com pelo menos *10 participantes*.\n\nComo este grupo é menor, vou sair agora. Agradeço por me usarem! 👋' });
+                            } catch (msgErr) {
+                                console.error(`[Startup] Erro ao enviar mensagem de saída para ${id}:`, msgErr);
+                            }
+
+                            
+                            await new Promise(resolve => setTimeout(resolve, 2000));
+
+                            try {
+                                await sock.groupLeave(id);
+                            } catch (leaveErr) {
+                                console.error(`[Startup] Erro ao sair do grupo ${id}:`, leaveErr);
+                            }
+                        }
+                    }
+                    console.log('[Startup] Verificação de grupos concluída.');
+                } catch (err) {
+                    console.error('[Startup] Erro fatal durante checagem de grupos:', err);
+                }
+            })();
+            
+
+
         }
+
         if (connection === 'close') {
             const reason = lastDisconnect?.error?.output?.statusCode;
-            const shouldReconnect = (reason !== DisconnectReason.loggedOut);
-            if (shouldReconnect) {
+            if (reason !== DisconnectReason.loggedOut) {
+                console.log(`Conexão fechada pelo motivo ${reason}, a reconectar...`);
                 startJulia();
+            } else {
+                console.error('[FATAL] Desconectado permanentemente (loggedOut). Apague a pasta auth_info e escaneie o QR Code novamente.');
             }
         }
     });
 }
 
-startJulia().catch(err => {
-    console.error("Erro fatal ao iniciar Julia:", err);
-    process.exit(1); 
-});
+startJulia().catch(err => console.error("Erro fatal ao iniciar Julia:", err));
+
+
+const cleanup = () => {
+    console.log('A encerrar o bot de forma segura...');
+    
+    messageStore.clear();
+    
+    if (sock) {
+        sock.end(new Error('Processo de encerramento iniciado.'));
+    }
+    
+    setTimeout(() => {
+        console.log('Bot encerrado.');
+        process.exit(0);
+    }, 1000);
+};
+
+
+process.on('SIGINT', cleanup);
+process.on('SIGTERM', cleanup);

@@ -1,10 +1,10 @@
-// commands/moeda.js
+
 
 async function handleCoinFlipCommand(sock, msg, msgDetails) {
     const { sender } = msgDetails;
 
     try {
-        // Gera um número aleatório: 0 ou 1
+        
         const result = Math.floor(Math.random() * 2); 
         const side = result === 0 ? 'Cara' : 'Coroa';
         const emoji = result === 0 ? '🤴' : '👑';
@@ -22,3 +22,12 @@ async function handleCoinFlipCommand(sock, msg, msgDetails) {
 }
 
 module.exports = handleCoinFlipCommand;
+
+
+module.exports.commandData = {
+    name: "moeda",
+    description: "Cara ou coroa.",
+    category: "diversao",
+    usage: "/moeda",
+    aliases: ["/c","/coin","/cara","/coroa"]
+};

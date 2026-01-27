@@ -1,37 +1,202 @@
-// aliases.js
-// Neste arquivo, você pode criar "apelidos" para os seus comandos.
-// A chave (à esquerda) é o apelido que você quer usar (ex: '/f').
-// O valor (à direita) é o comando original que ele vai executar (ex: '/sticker').
 
 module.exports = {
-    // Apelidos para /sticker
+    
     '/f': '/sticker',
     '/fig': '/sticker',
     '/s': '/sticker',
+    '/stiker': '/sticker',
+    '/fazerfig': '/sticker',
+    '/toimg': '/toimage',
+    '/img': '/toimage',
+    '/preset': '/stickerpreset',
+    '/configsticker': '/stickerpreset',
+    '/bg': '/removebg',
+    '/nobg': '/removebg',
+    '/deepfry': '/fritar',
+    '/frita': '/fritar',
+    '/low': '/lowres',
+    '/baixa': '/lowres',
+    '/qualidade': '/lowres',
 
-    // Apelidos para /audio e /video
+    
+    '/fx': '/audioaleatorio',
+    '/audioaleatorio': '/audioaleatorio',
+    '/audiorandom': '/audioaleatorio',
+    '/raudio': '/audioaleatorio',
+    '/sfx': '/audioaleatorio',
+
+    
     '/musica': '/audio',
+    '/mp3': '/audio',
+    '/play': '/audio',
+    '/som': '/audio',
     '/vid': '/video',
+    '/mp4': '/video',
+    '/assistir': '/video',
 
-    // Apelidos para /renomear
-    '/rename': '/renomear',
-
-    // Apelidos para /help
+    
     '/ajuda': '/help',
     '/comandos': '/help',
-    
-    // Apelidos para /brat
-    '/bratgreen': '/brat',
-
-    // Adicione quantos apelidos quiser aqui...
-    // Exemplo:
-    '/ban': '/remover',
     '/menu': '/help',
+    '/h': '/help',
+    '/rename': '/renomear',
+    '/nome': '/renomear',
+    '/r': '/renomear',
+    '/latencia': '/ping',
+    '/ms': '/ping',
+    '/status': '/ping',
+    '/id': '/jid',
+    '/myid': '/jid',
+    '/eu': '/perfil',
+    '/profile': '/perfil',
+    '/tempo': '/hora',
+    '/relogio': '/hora',
+    '/time': '/hora',
+    '/reportar': '/report',
+    '/bug': '/report',
+    '/sugestao': '/report',
+    '/transcription': '/transcrever',
+    '/txt': '/transcrever',
+    '/ler': '/transcrever',
 
-    '/casamento': '/casar',
-    '/casar': '/casar',       // Adicione ou verifique esta linha
-    '/divorcio': '/casar',    // Adicione ou verifique esta linha
-    '/casados': '/casar',     // Adicione ou verifique esta linha
-    '/aceitar': '/casar',      // Adicione esta nova linha
-    '/gado': '/gadometro'
+    
+    
+
+    '/entrar': '/agrandejulia',
+    '/liberar': '/agrandejulia',
+
+    
+    '/punch': '/soco',
+    '/socar': '/soco',
+    '/d': '/dado',
+    '/dice': '/dado',
+    '/rolar': '/dado', 
+    '/sorteio': '/sortear',
+    '/participar': '/sortear',
+    '/sortear': '/sortear',
+    '/c': '/moeda',
+    '/coin': '/moeda',
+    '/cara': '/moeda',
+    '/coroa': '/moeda',
+    '/ship': '/shipp',
+    '/casal': '/shipp',
+    '/love': '/shipp',
+    '/amor': '/shipp',
+    '/gado': '/gadometro',
+    '/boi': '/gadometro',
+    '/corno': '/gadometro',
+    '/top10': '/top',
+    '/ranking': '/top', 
+    '/lista': '/top',
+    '/aura': '/aura',
+    '/vibe': '/aura',
+    '/pontos': '/aura',
+    '/lastfm': '/np',
+    '/music': '/np',
+    '/tocando': '/np',
+    '/jogodavelha': '/velha',
+    '/tictactoe': '/velha',
+    '/ttt': '/velha',
+    '/sair': '/suicidio',
+    '/adeus': '/suicidio',
+    '/kickme': '/suicidio',
+    '/bratgreen': '/brat',
+    '/charli': '/brat',
+    '/bratlocal': '/bratlocal',
+    '/bratfox': '/bratlocal',
+    '/citacao': '/fakequote',
+    '/quote': '/fakequote',
+    '/fake': '/fakequote',
+    '/rep': '/rep',
+    '/reputacao': '/rep',
+    '/moral': '/rep',
+
+    
+    '/relacionamentos': '/relacionamentos',
+    '/casar': '/relacionamentos',
+    '/casamento': '/relacionamentos',
+    '/divorcio': '/relacionamentos',
+    '/casados': '/relacionamentos',
+    '/aceitar': '/relacionamentos',
+    '/adotar': '/relacionamentos',
+    '/adot': '/relacionamentos',
+    '/familia': '/relacionamentos',
+    '/aceitaradocao': '/relacionamentos',
+    '/deserdar': '/relacionamentos',
+    '/abandonar': '/relacionamentos',
+    '/filhos': '/relacionamentos',
+    '/pais': '/relacionamentos',
+
+
+    
+    '/ban': '/remover',
+    '/kick': '/remover',
+    '/expulsar': '/remover',
+    '/promover': '/promote',
+    '/up': '/promote',
+    '/rebaixar': '/demote',
+    '/unadmin': '/demote',
+    '/down': '/demote',
+    '/admin': '/admins',
+    '/admins': '/admins',
+    '/adm': '/admins',
+    '/adms': '/admins',
+    '/abrir': '/grupo',
+    '/open': '/grupo',
+    '/fechar': '/grupo',
+    '/close': '/grupo',
+    '/link': '/grupo', 
+    '/aviso': '/alerta',
+    '/warn': '/alerta',
+    '/advertencia': '/alerta',
+    '/banlist': '/alerta',
+    '/del': '/apagar',
+    '/delete': '/apagar',
+    '/apaga': '/apagar',
+    '/limpar': '/apagar',
+    '/everyone': '/todos',
+    '/all': '/todos',
+    '/marcar': '/todos',
+    '/tagall': '/todos',
+    '/voteban': '/banvote',
+    '/vb': '/banvote',
+    '/votacao': '/banvote',
+    '/nuke': '/cabum',
+    '/destruir': '/cabum',
+    '/limpar': '/cabum',
+    '/palavroes': '/palavrao',
+    '/badwords': '/palavrao',
+    '/filtropalavrao': '/palavrao',
+    '/regras': '/restrict', 
+    '/restricoes': '/restrict',
+    '/bloquear': '/restrict',
+    '/welcome': '/boasvindas',
+    '/bv': '/boasvindas',
+    '/recepcao': '/boasvindas',
+    '/atividade': '/rank',
+    '/stats': '/rank',
+    '/xp': '/rank',
+    '/tomate': '/modotomate',
+    '/tomato': '/modotomate',
+    '/autosticker': '/modosticker',
+    '/autofig': '/modosticker',
+    '/fiscal': '/tomatada', 
+    '/antidelete': '/antidelete',
+    '/ad': '/antidelete',
+
+    
+    '/bc': '/broadcast',
+    '/anuncio': '/broadcast',
+    '/transmitir': '/broadcast',
+    '/permitir': '/adicionar',
+    '/whitelist': '/adicionar',
+    '/sync': '/sincronizar', 
+    '/sinc': '/sincronizar',
+    '/reiniciar': '/restart',
+    '/reset': '/restart',
+    '/reload': '/restart',
+
+
+
+
 };

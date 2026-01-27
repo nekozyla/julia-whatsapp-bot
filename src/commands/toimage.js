@@ -1,16 +1,18 @@
-// commands/toimage.js
+
 const { downloadMediaMessage, getContentType } = require('@whiskeysockets/baileys');
 const sharp = require('sharp');
 const path = require('path');
 const fsp = require('fs').promises;
+const fs = require('fs');
 const { exec } = require('child_process');
 const crypto = require('crypto');
-const { sendJuliaError } = require('../utils/utils');
+const ffmpegStatic = require('ffmpeg-static');
+const { sendJuliaError, getTempDir } = require('../utils/utils');
 
 async function handleToImageCommand(sock, msg, msgDetails) {
     const { sender, quotedMsgInfo, pushName } = msgDetails;
 
-    // 1. Validações iniciais
+    
     if (!quotedMsgInfo) {
         await sock.sendMessage(sender, { text: "Para converter uma figurinha, responda a ela com o comando `!toimage`." }, { quoted: msg });
         return true;
@@ -22,16 +24,15 @@ async function handleToImageCommand(sock, msg, msgDetails) {
         return true;
     }
 
-    // A verificação correta para saber se o sticker é animado
+    
     const isAnimated = quotedMsgInfo.stickerMessage?.isAnimated === true;
     console.log(`[ToImage] Recebida solicitação de ${pushName}. Figurinha animada: ${isAnimated}`);
 
-    const tempDir = path.join(__dirname, '..', 'temp_stickers');
-    await fsp.mkdir(tempDir, { recursive: true });
+    const tempDir = await getTempDir('stickers');
     const randomId = crypto.randomBytes(8).toString('hex');
-    const inputPath = path.join(tempDir, `${randomId}.webp`);
-    const outputPath = path.join(tempDir, `${randomId}.gif`);
-    
+    const inputGifPath = path.join(tempDir, `${randomId}.gif`);
+    const outputMp4Path = path.join(tempDir, `${randomId}.mp4`);
+
     try {
         await sock.sendPresenceUpdate('composing', sender);
 
@@ -40,37 +41,66 @@ async function handleToImageCommand(sock, msg, msgDetails) {
             message: quotedMsgInfo
         };
 
-        const buffer = await downloadMediaMessage(stickerMsg, 'buffer', {}, { logger: undefined });
+        let buffer;
+        try {
+            buffer = await downloadMediaMessage(stickerMsg, 'buffer', {}, { logger: undefined });
+        } catch (downloadErr) {
+            console.error('[ToImage] Erro no downloadMediaMessage:', downloadErr);
+            throw new Error("Falha ao baixar a figurinha. Tente responder a ela novamente.");
+        }
 
         if (isAnimated) {
-            // --- LÓGICA CORRIGIDA PARA FIGURINHAS ANIMADAS (WEBP -> GIF) ---
-            await fsp.writeFile(inputPath, buffer);
+            
 
-            // Este comando de 2 passos (palettegen + paletteuse) é a forma mais confiável
-            // de converter animações para GIF, preservando a qualidade e a animação.
-            const ffmpegCommand = `ffmpeg -i "${inputPath}" -vf "split[s0][s1];[s0]palettegen=stats_mode=single[p];[s1][p]paletteuse=dither=bayer" -loop 0 "${outputPath}"`;
+            
+            const gifBuffer = await sharp(buffer, { animated: true })
+                .toFormat('gif')
+                .toBuffer();
 
-            await new Promise((resolve, reject) => {
-                exec(ffmpegCommand, (error, stdout, stderr) => {
-                    if (error) {
-                        console.error('[FFmpeg ToImage Error]:', stderr);
-                        return reject(new Error('Falha ao converter a figurinha animada com FFmpeg.'));
-                    }
-                    resolve(stdout);
+            await fsp.writeFile(inputGifPath, gifBuffer);
+
+            
+            
+            
+
+            const runFfmpeg = (cmdPath) => {
+                const command = `"${cmdPath}" -i "${inputGifPath}" -movflags faststart -pix_fmt yuv420p -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" "${outputMp4Path}"`;
+                return new Promise((resolve, reject) => {
+                    exec(command, (error, stdout, stderr) => {
+                        if (error) {
+                            reject({ error, stderr });
+                        } else {
+                            resolve(stdout);
+                        }
+                    });
                 });
-            });
+            };
 
-            const gifBuffer = await fsp.readFile(outputPath);
-            await sock.sendMessage(sender, { 
-                video: gifBuffer, 
-                caption: "✨ Figurinha animada convertida para GIF!",
-                gifPlayback: true 
-            });
+            try {
+                
+                await runFfmpeg(ffmpegStatic);
+            } catch (err1) {
+                console.warn(`[ToImage] Falha com ffmpeg-static: ${err1.stderr || err1.error?.message}. Tentando ffmpeg do sistema...`);
+                try {
+                    
+                    await runFfmpeg('ffmpeg');
+                } catch (err2) {
+                    console.error('[FFmpeg ToImage Error]:', err2.stderr);
+                    throw new Error(`Falha ao converter GIF para MP4 com FFmpeg: ${err2.stderr}`);
+                }
+            }
+
+            const mp4Buffer = await fsp.readFile(outputMp4Path);
+            await sock.sendMessage(sender, {
+                video: mp4Buffer,
+                caption: "✨ Figurinha animada convertida para vídeo!",
+                gifPlayback: false 
+            }, { quoted: msg });
 
         } else {
-            // --- LÓGICA PARA FIGURINHAS ESTÁTICAS (WEBP -> PNG) ---
+            
             const imageBuffer = await sharp(buffer).toFormat('png').toBuffer();
-            await sock.sendMessage(sender, { 
+            await sock.sendMessage(sender, {
                 image: imageBuffer,
                 caption: "✨ Figurinha convertida para imagem!"
             }, { quoted: msg });
@@ -80,12 +110,21 @@ async function handleToImageCommand(sock, msg, msgDetails) {
         console.error("[ToImage] Erro ao converter figurinha:", error);
         await sendJuliaError(sock, sender, msg, error);
     } finally {
-        // Limpeza dos arquivos temporários
-        await fsp.unlink(inputPath).catch(() => {});
-        await fsp.unlink(outputPath).catch(() => {});
+        
+        await fsp.unlink(inputGifPath).catch(() => { });
+        await fsp.unlink(outputMp4Path).catch(() => { });
     }
 
     return true;
 }
 
 module.exports = handleToImageCommand;
+
+
+module.exports.commandData = {
+    name: "toimage",
+    description: "Converte figurinha para imagem.",
+    category: "midia",
+    usage: "/toimage",
+    aliases: ["/toimg","/img"]
+};

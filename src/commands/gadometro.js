@@ -1,4 +1,4 @@
-// commands/gado.js
+
 const { sendJuliaError } = require('../utils/utils.js');
 
 async function handleGadoCommand(sock, msg, msgDetails) {
@@ -6,26 +6,26 @@ async function handleGadoCommand(sock, msg, msgDetails) {
     const isGroup = sender.endsWith('@g.us');
 
     if (!isGroup) {
-        // O comando pode funcionar no privado também, então não vamos restringir
+        
     }
 
     const commandSenderJid = msg.key.participant || msg.key.remoteJid;
     const mentionedJids = msg.message.extendedTextMessage?.contextInfo?.mentionedJid || [];
 
-    let personToCheck = commandSenderJid; // Por padrão, mede quem enviou o comando
+    let personToCheck = commandSenderJid; 
     let targetName = pushName;
 
-    // Se alguém for marcado, o alvo muda para a pessoa marcada
+    
     if (mentionedJids.length > 0) {
         personToCheck = mentionedJids[0];
-        // Precisamos buscar o nome da pessoa marcada, mas para simplificar, usaremos a menção
+        
         targetName = `@${personToCheck.split('@')[0]}`;
     }
-    
-    // Gera a porcentagem aleatória de "gado"
-    const gadoLevel = Math.floor(Math.random() * 101); // De 0 a 100
 
-    // Cria uma mensagem e um ícone baseados no nível
+    
+    const gadoLevel = Math.floor(Math.random() * 101); 
+
+    
     let responseMessage;
     const icon = '🐂';
 
@@ -42,12 +42,12 @@ async function handleGadoCommand(sock, msg, msgDetails) {
     }
 
     try {
-        // Monta o texto final e envia
+        
         let finalMessage = `🔍 *GADÔMETRO 3000* 🔍\n\n`;
         finalMessage += `Analisando o nível de gado de ${targetName}...\n\n`;
         finalMessage += `Resultado: *${gadoLevel}% Gado(a)!* ${icon}\n\n`;
         finalMessage += `_"${responseMessage}"_`;
-        
+
         let mentions = personToCheck === commandSenderJid ? [] : [personToCheck];
 
         await sock.sendMessage(sender, {
@@ -63,3 +63,12 @@ async function handleGadoCommand(sock, msg, msgDetails) {
 }
 
 module.exports = handleGadoCommand;
+
+
+module.exports.commandData = {
+    name: "gadometro",
+    description: "Sem descrição disponível.",
+    category: "diversao",
+    usage: "/gadometro",
+    aliases: ["/gado", "/boi", "/corno"]
+};

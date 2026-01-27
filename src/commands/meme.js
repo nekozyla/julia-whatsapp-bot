@@ -1,14 +1,12 @@
-// commands/meme.js (Versão com a lista completa de 100 memes)
+
 
 const axios = require('axios');
 const { IMGFLIP_USERNAME, IMGFLIP_PASSWORD } = require('../../config/config.js');
 
-// Armazena a lista de templates em cache
+
 let memeTemplates = [];
 
-/**
- * Carrega os 100 memes mais populares da Imgflip.
- */
+
 async function loadMemeTemplates() {
     try {
         const response = await axios.get('https://api.imgflip.com/get_memes');
@@ -21,10 +19,7 @@ async function loadMemeTemplates() {
     }
 }
 
-/**
- * Gera um meme usando a API da Imgflip.
- * @returns {Promise<string|null>} A URL da imagem do meme gerado.
- */
+
 async function createMeme(templateId, text0, text1) {
     const params = new URLSearchParams();
     params.append('template_id', templateId);
@@ -47,7 +42,7 @@ async function createMeme(templateId, text0, text1) {
     }
 }
 
-// --- Handler Principal do Comando ---
+
 module.exports = async (sock, msg, msgDetails) => {
     const { sender, commandText } = msgDetails;
 
@@ -59,14 +54,14 @@ module.exports = async (sock, msg, msgDetails) => {
     const argsRegex = /(?:[^\s"]+|"[^"]*")+/g;
     const args = commandText.match(argsRegex) || [];
     
-    args.shift(); // Remove o comando inicial (/meme)
+    args.shift(); 
 
     const templateIdentifier = (args[0] || '').toLowerCase();
     const text0 = (args[1] || '').replace(/"/g, '');
     const text1 = (args[2] || '').replace(/"/g, '');
 
     if (!templateIdentifier) {
-        // --- MUDANÇA AQUI: Removemos o .slice(0, 20) para mostrar todos os 100 memes ---
+        
         const fullMemeList = memeTemplates.map((m, index) => `*${index + 1}.* \`${m.name}\``).join('\n');
         const tutorialText = `*Gerador de Memes da Julia* 🖼️\n\nCrie um meme usando os templates mais populares!\n\n*Como usar:*\n\`/meme <número> "texto de cima" "texto de baixo"\`\n\n*Exemplo:*\n\`/meme 1 "Ninguém simplesmente" "cria um comando de meme tão rápido"\`\n\n*Lista Completa de Memes Populares:*\n${fullMemeList}`;
         await sock.sendMessage(sender, { text: tutorialText }, { quoted: msg });
@@ -113,4 +108,13 @@ module.exports = async (sock, msg, msgDetails) => {
         console.error("[Meme Command] Erro ao gerar o meme:", error);
         await sock.sendMessage(sender, { text: "😕 Ocorreu um erro ao criar o seu meme." }, { quoted: msg });
     }
+};
+
+
+module.exports.commandData = {
+    name: "meme",
+    description: "Cria meme.",
+    category: "midia",
+    usage: "/meme",
+    aliases: []
 };

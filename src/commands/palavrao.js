@@ -1,25 +1,25 @@
-// commands/palavrao.js
-const profanityManager = require('../managers/profanityManager'); // Usando .cjs para consistência
+
+const profanityManager = require('../managers/profanityManager'); 
 
 module.exports = async (sock, msg, msgDetails) => {
     const { sender, commandText, isSuperAdmin } = msgDetails;
 
     if (!isSuperAdmin) {
-        // Se não for admin, o comando simplesmente não faz nada.
+        
         return;
     }
 
-    // --- CORREÇÃO PRINCIPAL ---
-    // Verifica se a mensagem realmente tem texto. Se não, envia o menu de ajuda e para.
+    
+    
     if (!commandText) {
         await sock.sendMessage(sender, { text: "Comando inválido. Use:\n- `/palavrao add <palavra>`\n- `/palavrao remove <palavra>`\n- `/palavrao list`" }, { quoted: msg });
         return;
     }
     
-    // Extrai os argumentos do comando de forma segura
+    
     const args = commandText.split(' ');
-    const subCommand = args[1] || ''; // Pega o sub-comando (add, remove, list) ou uma string vazia
-    const word = args.slice(2).join(' '); // Pega todo o resto do texto como a palavra
+    const subCommand = args[1] || ''; 
+    const word = args.slice(2).join(' '); 
 
     switch (subCommand.toLowerCase()) {
         case 'add':
@@ -58,4 +58,13 @@ module.exports = async (sock, msg, msgDetails) => {
             await sock.sendMessage(sender, { text: "Comando inválido. Use:\n- `/palavrao add <palavra>`\n- `/palavrao remove <palavra>`\n- `/palavrao list`" }, { quoted: msg });
             break;
     }
+};
+
+
+module.exports.commandData = {
+    name: "palavrao",
+    description: "Filtro global de palavrões.",
+    category: "super",
+    usage: "/palavrao",
+    aliases: ["/palavroes","/badwords","/filtropalavrao"]
 };

@@ -1,8 +1,8 @@
-// contactManager.js
+
 const fs = require('fs').promises;
 const path = require('path');
 
-const CONTACTS_FILE_PATH = path.join(__dirname, '..', 'data', 'contacts.json');
+const CONTACTS_FILE_PATH = path.join(__dirname, '..', '..', 'data', 'contacts.json');
 let contactsCache = new Set();
 
 async function loadContacts() {
@@ -10,10 +10,10 @@ async function loadContacts() {
         const data = await fs.readFile(CONTACTS_FILE_PATH, 'utf-8');
         const loadedJids = JSON.parse(data);
         contactsCache = new Set(loadedJids);
-        console.log(`[Contacts] ${contactsCache.size} contactos carregados.`);
+        
     } catch (error) {
         if (error.code === 'ENOENT') {
-            console.log('[Contacts] Arquivo de contactos não encontrado, a lista de broadcast estará vazia.');
+            
         }
     }
 }
@@ -33,10 +33,7 @@ async function addContact(jid) {
     }
 }
 
-/**
- * Remove um JID da lista de contatos.
- * @param {string} jid - O JID do contato a ser removido.
- */
+
 async function removeContact(jid) {
     if (contactsCache.has(jid)) {
         contactsCache.delete(jid);
@@ -47,6 +44,44 @@ async function removeContact(jid) {
     return false;
 }
 
+
+
+
+
+
+
+const NICKNAMES_FILE_PATH = path.join(__dirname, '..', '..', 'data', 'nicknames.json');
+let nicknamesCache = {};
+
+async function loadNicknames() {
+    try {
+        const data = await fs.readFile(NICKNAMES_FILE_PATH, 'utf-8');
+        nicknamesCache = JSON.parse(data);
+    } catch (error) {
+        if (error.code === 'ENOENT') nicknamesCache = {};
+    }
+}
+
+async function saveNicknames() {
+    try {
+        await fs.writeFile(NICKNAMES_FILE_PATH, JSON.stringify(nicknamesCache));
+    } catch (error) {
+        console.error('[Contacts] Erro ao salvar nicknames:', error);
+    }
+}
+
+async function updateContact(jid, data) {
+    if (data.notify) {
+        nicknamesCache[jid] = data.notify;
+        await saveNicknames();
+    }
+}
+
+function getNickname(jid) {
+    return nicknamesCache[jid];
+
+}
+
 function getContacts() {
     return [...contactsCache];
 }
@@ -55,6 +90,9 @@ module.exports = {
     loadContacts,
     addContact,
     getContacts,
-    removeContact // Exporta a nova função
+    removeContact,
+    updateContact,
+    getNickname,
+    loadNicknames
 };
 

@@ -1,4 +1,4 @@
-// commands/modotomate.js
+
 const settingsManager = require('../managers/groupSettingsManager.js');
 
 async function handleTomatoModeCommand(sock, msg, msgDetails) {
@@ -13,7 +13,7 @@ async function handleTomatoModeCommand(sock, msg, msgDetails) {
         const groupMetadata = await sock.groupMetadata(sender);
         const senderParticipant = groupMetadata.participants.find(p => p.id === commandSenderJid);
 
-        // Permite que o superadmin ou um admin do grupo use o comando
+        
         if (!senderParticipant?.admin && !isSuperAdmin) {
             await sock.sendMessage(sender, { text: "Apenas administradores do grupo podem usar este comando." }, { quoted: msg });
             return true;
@@ -42,3 +42,12 @@ async function handleTomatoModeCommand(sock, msg, msgDetails) {
 
 module.exports = handleTomatoModeCommand;
 
+
+
+module.exports.commandData = {
+    name: "modotomate",
+    description: "Reação de tomate.",
+    category: "admin",
+    usage: "/modotomate",
+    aliases: ["/tomate","/tomato"]
+};

@@ -1,37 +1,59 @@
-// utils.js (Versão atualizada e completa)
+
 const { exec, spawn } = require('child_process');
 const fs = require('fs').promises;
 const { tmpdir } = require('os');
 const path = require('path');
-const ffmpeg = require('ffmpeg-static');
+const ffmpegStatic = require('ffmpeg-static');
+const fsSync = require('fs'); 
+
+let ffmpegPath = process.env.FFMPEG_PATH;
+
+if (!ffmpegPath) {
+    if (ffmpegStatic && fsSync.existsSync(ffmpegStatic)) {
+        ffmpegPath = ffmpegStatic;
+    } else {
+        console.warn("[FFMPEG] Binário do ffmpeg-static não encontrado ou inválido. Usando 'ffmpeg' global.");
+        ffmpegPath = 'ffmpeg';
+    }
+} else {
+    if (!fsSync.existsSync(ffmpegPath) && ffmpegPath !== 'ffmpeg') {
+        console.warn(`[FFMPEG] O caminho especificado em FFMPEG_PATH (${ffmpegPath}) não existe. Tentando fallback.`);
+        if (ffmpegStatic && fsSync.existsSync(ffmpegStatic)) {
+            ffmpegPath = ffmpegStatic;
+        } else {
+            ffmpegPath = 'ffmpeg';
+        }
+    }
+}
+
+const ffmpeg = ffmpegPath;
 const ffprobe = require('ffprobe-static');
 
-/**
- * Envia uma mensagem de erro padronizada para o chat e loga o erro completo no console.
- * @param {any} sock O socket da conexão Baileys.
- * @param {string} chatJid O JID do chat para onde enviar o erro.
- * @param {any} originalMsg O objeto da mensagem original para responder.
- * @param {Error} error O objeto do erro que ocorreu.
- */
+
 async function sendJuliaError(sock, chatJid, originalMsg, error) {
     console.error(`[Erro Handler para ${chatJid}]: ${error.message} (Status: ${error.status || 'N/A'})`);
-    console.error(error.stack); // Loga o stack completo para depuração
+    console.error(error.stack); 
 
-    let friendlyMessage = `😕 Tive um probleminha: ${error.message}`;
+    let friendlyMessage = `😕 Tive um probleminha aqui e não consegui processar o seu pedido.`; 
 
-    // Personaliza a mensagem para erros comuns da API do Gemini
+    
     if (error.message && error.message.includes('GoogleGenerativeAI Error')) {
         if (error.message.includes('500 Internal Server Error')) {
-            // Ignora o envio para o usuário, pois é um problema temporário do servidor do Google
+            
+            console.warn(`[Erro Handler] Erro 500 do Google, ignorando a mensagem para o utilizador.`);
             return;
         }
         if (error.message.includes('API key not valid')) {
             friendlyMessage = "🔑 Minha chave de API para o Gemini não é válida. A minha criadora precisa de verificar o ficheiro `.env`.";
         } else if (error.message.includes('quota')) {
-            friendlyMessage = " overworked.  Atingi o meu limite de pedidos à IA por enquanto. Por favor, tente novamente mais tarde.";
+            friendlyMessage = " overworked. Atingi o meu limite de pedidos à IA por enquanto. Por favor, tente novamente mais tarde.";
         }
     } else if (error.message.includes('FFMPEG')) {
         friendlyMessage = "😕 Tive um problema ao processar o ficheiro de mídia. Ele pode estar num formato que eu não consigo ler.";
+    } else {
+        
+        
+        friendlyMessage = `😕 Tive um probleminha aqui: ${error.message}`;
     }
 
     try {
@@ -41,13 +63,12 @@ async function sendJuliaError(sock, chatJid, originalMsg, error) {
     }
 }
 
-/**
- * Extrai o texto de um objeto de mensagem, independentemente do tipo.
- * @param {object} message O objeto da mensagem do Baileys.
- * @returns {string | null} O texto da mensagem ou nulo se não houver.
- */
+
+
 function getTextFromMsg(message) {
     if (!message) return null;
+
+    
     return message.conversation ||
         message.extendedTextMessage?.text ||
         message.imageMessage?.caption ||
@@ -55,23 +76,14 @@ function getTextFromMsg(message) {
         null;
 }
 
-/**
- * Extrai o texto de um comando, removendo o prefixo.
- * @param {string} fullText O texto completo da mensagem.
- * @param {string} commandPrefix O prefixo do comando (ex: "!mudar").
- * @returns {string | null} O texto após o comando ou nulo.
- */
+
 function extractCommandText(fullText, commandPrefix) {
     if (!fullText || !fullText.startsWith(commandPrefix)) return null;
     return fullText.substring(commandPrefix.length).trim();
 }
 
 
-/**
- * Converte um buffer de áudio para o formato WAV usando ffmpeg.
- * @param {Buffer} audioBuffer O buffer de áudio original.
- * @returns {Promise<Buffer>} Um buffer com o áudio no formato WAV.
- */
+
 async function convertAudioToWav(audioBuffer) {
     return new Promise((resolve, reject) => {
         const ffmpegProcess = spawn(ffmpeg, [
@@ -94,17 +106,17 @@ async function convertAudioToWav(audioBuffer) {
             }
         });
 
+        ffmpegProcess.on('error', (err) => {
+            reject(err);
+        });
+
         ffmpegProcess.stdin.write(audioBuffer);
         ffmpegProcess.stdin.end();
     });
 }
 
 
-/**
- * Obtém a duração de um vídeo em segundos.
- * @param {string} videoPath O caminho para o ficheiro de vídeo.
- * @returns {Promise<number>} A duração do vídeo em segundos.
- */
+
 async function getVideoDuration(videoPath) {
     return new Promise((resolve, reject) => {
         exec(`${ffprobe.path} -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${videoPath}"`, (error, stdout, stderr) => {
@@ -117,11 +129,7 @@ async function getVideoDuration(videoPath) {
     });
 }
 
-/**
- * Converte um buffer de áudio PCM bruto para o formato OGG Opus usando ffmpeg.
- * @param {Buffer} pcmBuffer O buffer de áudio PCM.
- * @returns {Promise<Buffer>} Um buffer com o áudio no formato OGG.
- */
+
 async function pcmToOgg(pcmBuffer) {
     return new Promise((resolve, reject) => {
         const ffmpegProcess = spawn(ffmpeg, [
@@ -159,11 +167,86 @@ async function pcmToOgg(pcmBuffer) {
     });
 }
 
+
+async function getTempDir(subDir = '') {
+    const tempPath = path.join(__dirname, '..', '..', 'temp', subDir);
+    await fs.mkdir(tempPath, { recursive: true });
+    return tempPath;
+}
+
+
+async function getChromiumPath() {
+    const possiblePaths = [
+        '/usr/bin/chromium-browser',
+        '/usr/bin/chromium',
+        '/usr/bin/google-chrome-stable',
+        '/usr/bin/google-chrome',
+        '/snap/bin/chromium',
+        '/snap/bin/chromium-browser'
+    ];
+
+    for (const path of possiblePaths) {
+        try {
+            await fs.access(path);
+            return path;
+        } catch (e) { }
+    }
+    return null;
+}
+
 module.exports = {
     sendJuliaError,
     getTextFromMsg,
-    extractCommandText, // Adicionada para exportação
+    extractCommandText,
     convertAudioToWav,
     getVideoDuration,
-    pcmToOgg // Adicionada para exportação
+    pcmToOgg,
+    getTempDir,
+    getChromiumPath,
+    normalizeText,
+    convertGifToMp4
 };
+
+
+function normalizeText(text) {
+    if (!text) return '';
+    return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+
+async function convertGifToMp4(gifBuffer) {
+    const tempDir = await getTempDir('conversions');
+    const inputPath = path.join(tempDir, `temp_${Date.now()}_${Math.random().toString(36).substring(7)}.gif`);
+    const outputPath = path.join(tempDir, `temp_${Date.now()}_${Math.random().toString(36).substring(7)}.mp4`);
+
+    await fs.writeFile(inputPath, gifBuffer);
+
+    return new Promise((resolve, reject) => {
+        const ffmpegProcess = spawn(ffmpeg, [
+            '-y',
+            '-i', inputPath,
+            '-movflags', 'faststart',
+            '-pix_fmt', 'yuv420p',
+            '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2', 
+            '-f', 'mp4',
+            outputPath
+        ]);
+
+        ffmpegProcess.on('close', async (code) => {
+            if (code === 0) {
+                try {
+                    const mp4Buffer = await fs.readFile(outputPath);
+                    await fs.unlink(inputPath).catch(() => { });
+                    await fs.unlink(outputPath).catch(() => { });
+                    resolve(mp4Buffer);
+                } catch (err) {
+                    reject(err);
+                }
+            } else {
+                reject(new Error(`FFmpeg exited with code ${code}`));
+            }
+        });
+
+        ffmpegProcess.on('error', (err) => reject(err));
+    });
+}

@@ -1,11 +1,11 @@
-// config.js
+
 require('dotenv').config();
 const path = require('path');
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 const GEMINI_MODELS = [
-    'gemini-2.5-flash-lite-preview-06-17'
+    'gemini-2.5-flash-lite'
 ];
 
 const IMGFLIP_USERNAME = process.env.IMGFLIP_USERNAME;
@@ -21,16 +21,16 @@ const INITIAL_CONTEXT = [
 const SESSIONS_DIR = path.join(__dirname, 'whatsapp_julia_sessions');
 const AUTH_FILE_PATH = 'auth_julia_whatsapp';
 
-// --- ALTERAÇÃO AQUI ---
-// Agora é uma lista (Array) de administradores.
-// O primeiro da lista é considerado o "Super Admin".
+
+
+
 const ADMIN_JIDS = [
-    "5522992667333@s.whatsapp.net", // Admin principal
+    "5522992667333@s.whatsapp.net", 
     "556584046513@s.whatsapp.net",
-    "136000441421829@lid", // Adicione quantos admins quiser
-    // "MAIS_UM_ADMIN@s.whatsapp.net",
+    "136000441421829@lid", 
+    
 ];
-// --- FIM DA ALTERAÇÃO ---
+
 
 const SPONTANEOUS_RESPONSE_CHANCE = 0.000;
 const DEFAULT_MAX_OUTPUT_TOKENS = 400;
@@ -38,24 +38,27 @@ const DEFAULT_MAX_OUTPUT_TOKENS = 400;
 const INSTAGRAM_USERNAME = process.env.INSTAGRAM_USERNAME;
 const INSTAGRAM_PASSWORD = process.env.INSTAGRAM_PASSWORD;
 
-// --- ADIÇÃO PARA O LAST.FM ---
+
 const LASTFM_API_KEY = process.env.LASTFM_API_KEY;
 const LASTFM_USERNAME = process.env.LASTFM_USERNAME;
 
-// --- DADOS DO SPOTIFY ---
+
 const SPOTIFY_CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
 const SPOTIFY_CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
 const SPOTIFY_REFRESH_TOKEN = process.env.SPOTIFY_REFRESH_TOKEN;
 
+const REMOVE_BG_KEY = process.env.REMOVE_BG_KEY;
+const BROWSERLESSAPI = process.env.BROWSERLESSAPI;
 
-module.exports = { 
-    GEMINI_API_KEY, 
-    GEMINI_MODELS, 
-    JULIA_SYSTEM_PROMPT, 
-    JULIA_INITIAL_GREETING, 
-    INITIAL_CONTEXT, 
-    SESSIONS_DIR, 
-    AUTH_FILE_PATH, 
+
+module.exports = {
+    GEMINI_API_KEY,
+    GEMINI_MODELS,
+    JULIA_SYSTEM_PROMPT,
+    JULIA_INITIAL_GREETING,
+    INITIAL_CONTEXT,
+    SESSIONS_DIR,
+    AUTH_FILE_PATH,
     ADMIN_JIDS,
     DEFAULT_MAX_OUTPUT_TOKENS,
     INSTAGRAM_USERNAME,
@@ -63,9 +66,11 @@ module.exports = {
     IMGFLIP_USERNAME,
     LASTFM_API_KEY,
     IMGFLIP_PASSWORD,
-    // --- EXPORTAÇÃO DO SPOTIFY ---
+    
     SPOTIFY_CLIENT_ID,
     SPOTIFY_CLIENT_SECRET,
-    SPOTIFY_REFRESH_TOKEN
+    SPOTIFY_REFRESH_TOKEN,
+    REMOVE_BG_KEY, 
+    BROWSERLESSAPI
 };
 

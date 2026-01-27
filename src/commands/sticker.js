@@ -1,23 +1,25 @@
-// commands/sticker.js (Versão Corrigida com criação de pasta na fila)
-const { downloadMediaMessage, getContentType } = require('@whiskeysockets/baileys');
+
+const { downloadContentFromMessage, getContentType } = require('@whiskeysockets/baileys');
 const sharp = require('sharp');
 const path = require('path');
 const fsp = require('fs').promises;
+
+const { pipeline } = require('stream/promises');
+const fs = require('fs');
 const { exec } = require('child_process');
 const crypto = require('crypto');
 const { Image } = require('node-webpmux');
-const axios = require('axios');
-const { fileTypeFromBuffer } = require('file-type');
+const { getTempDir } = require('../utils/utils');
 
-// --- LÓGICA DA FILA DE PROCESSAMENTO ---
+const userPresetManager = require('../managers/userPresetManager.js');
 
-const videoQueue = []; 
-let isProcessing = false; 
+
+
+const videoQueue = [];
+let isProcessing = false;
 let currentlyProcessingJid = null;
 
-/**
- * Processa o próximo item na fila de vídeos.
- */
+
 async function processQueue() {
     if (videoQueue.length === 0) {
         isProcessing = false;
@@ -27,35 +29,48 @@ async function processQueue() {
     }
 
     isProcessing = true;
+
     const job = videoQueue.shift();
-    const { sock, msg, msgDetails, mediaToProcess, downloadedFilePath, isDownloadedFromUrl } = job;
+    const { sock, msg, msgDetails, mediaToProcess, downloadedFilePath, isDownloadedFromUrl, options } = job;
     const { sender, commandSenderJid } = msgDetails;
 
     currentlyProcessingJid = commandSenderJid;
 
-    console.log(`[Sticker Queue] A processar sticker de vídeo para ${commandSenderJid}. Itens restantes: ${videoQueue.length}`);
     await sock.sendMessage(sender, { react: { text: '⚙️', key: msg.key } });
 
-    // --- CORREÇÃO AQUI ---
-    // Garante que a pasta temporária para stickers existe antes de usá-la
-    const tempDirStickers = path.join(__dirname, '..', '..', 'temp', 'stickers');
-    await fsp.mkdir(tempDirStickers, { recursive: true });
-    // --- FIM DA CORREÇÃO ---
-
+    const tempDirStickers = await getTempDir('stickers');
     const randomId = crypto.randomBytes(8).toString('hex');
-    const inputPath = isDownloadedFromUrl ? downloadedFilePath : path.join(tempDirStickers, `${randomId}_in`);
-    const outputPath = path.join(tempDirStickers, `${randomId}_out.webp`);
+
     
+    const inputPath = isDownloadedFromUrl ? downloadedFilePath : path.join(tempDirStickers, `${randomId}_in`);
+    
+    const outputPath = path.join(tempDirStickers, `${randomId}_out.webp`);
+
     try {
         if (!isDownloadedFromUrl) {
-            const buffer = await downloadMediaMessage(mediaToProcess, 'buffer', {}, { logger: undefined });
-            await fsp.writeFile(inputPath, buffer);
+            try {
+                
+                const messageType = getContentType(mediaToProcess.message);
+                const stream = await downloadContentFromMessage(mediaToProcess.message[messageType], messageType.replace('Message', ''));
+
+                
+                await pipeline(
+                    stream,
+                    fs.createWriteStream(inputPath)
+                );
+
+            } catch (downloadErr) {
+                console.error('[Sticker Queue] Erro no downloadContentFromMessage:', downloadErr);
+                throw new Error("Falha ao baixar a mídia. Tente reenviar a imagem/vídeo.");
+            }
         }
 
-        await optimizeAnimatedSticker(inputPath, outputPath);
-        let finalBuffer = await fsp.readFile(outputPath);
         
-        const options = { pack: 'Criado com Jul.ia', author: 'by @nekozylajs' };
+        await optimizeAnimatedSticker(inputPath, outputPath, options);
+
+        let finalBuffer = await fsp.readFile(outputPath);
+
+        
         finalBuffer = await addExif(finalBuffer, options);
 
         await sock.sendMessage(sender, { react: { text: '✅', key: msg.key } });
@@ -66,20 +81,22 @@ async function processQueue() {
         await sock.sendMessage(sender, { react: { text: '❌', key: msg.key } });
         await sock.sendMessage(sender, { text: `Ocorreu um erro ao criar a sua figurinha de vídeo. 😕\n\n_${err.message}_` }, { quoted: msg });
     } finally {
-        await fsp.unlink(inputPath).catch(() => {});
-        await fsp.unlink(outputPath).catch(() => {});
+        
+        await fsp.unlink(inputPath).catch(() => { });
+        await fsp.unlink(inputPath + "_fixed.mp4").catch(() => { }); 
+        await fsp.unlink(outputPath).catch(() => { });
+
         if (isDownloadedFromUrl && downloadedFilePath) {
-            await fsp.unlink(downloadedFilePath).catch(() => {});
+            await fsp.unlink(downloadedFilePath).catch(() => { });
         }
-        currentlyProcessingJid = null; 
+
+        currentlyProcessingJid = null;
         processQueue();
     }
 }
 
 
-/**
- * Adiciona metadados EXIF a um buffer de imagem WebP.
- */
+
 async function addExif(buffer, options) {
     const stickerPackId = crypto.randomBytes(16).toString('hex');
     const json = {
@@ -101,42 +118,120 @@ async function addExif(buffer, options) {
     return await image.save(null);
 }
 
-async function optimizeAnimatedSticker(inputPath, outputPath) {
-    const MAX_SIZE_BYTES = 1000 * 1000; // 1 MB
+
+async function optimizeAnimatedSticker(inputPath, outputPath, options) {
+    const MAX_SIZE_BYTES = 1000 * 1000; 
+    let lastError = null;
     const optimizationSteps = [
-        { quality: 50, fps: 24 },
-        { quality: 25, fps: 24 },
-        { quality: 10, fps: 24 },
-        { quality: 5, fps: 24 },
-        { quality: 1, fps: 24 }
+        { quality: 100, fps: 30 },
+        { quality: 50, fps: 30 },
+        { quality: 30, fps: 30 },
+        { quality: 30, fps: 24 },
+        { quality: 30, fps: 15 },
+        { quality: 30, fps: 10 }
     ];
 
-    for (const params of optimizationSteps) {
-        const ffmpegCommand = `ffmpeg -i "${inputPath}" -y -t 10 ` + 
-            `-vf "scale=512:512:force_original_aspect_ratio=increase,crop=512:512,fps=${params.fps},split[s0][s1];[s0]palettegen=max_colors=254[p];[s1][p]paletteuse=dither=bayer" ` +
-            `-c:v libwebp -lossless 0 -q:v ${params.quality} -loop 0 -preset default -an -vsync 0 "${outputPath}"`;
+    
+    
+    
+    const fixedInputPath = inputPath + "_fixed.mp4";
 
+    
+    
+    
+    
+    
+    
+    
+    const sanitizeCommand = `ffmpeg -y -i "${inputPath}" -t 10 -c:v libx264 -preset superfast -crf 23 -pix_fmt yuv420p -an -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" "${fixedInputPath}"`;
+
+    try {
         await new Promise((resolve, reject) => {
-            exec(ffmpegCommand, (error, stdout, stderr) => {
+            exec(sanitizeCommand, (error, stdout, stderr) => {
                 if (error) {
-                    console.error(`FFmpeg stderr: ${stderr}`);
-                    return reject(new Error(`Erro no FFmpeg: ${error.message}`));
+                    console.error("Erro na sanitização:", stderr);
+                    
+                    return reject(new Error("Falha ao preparar o vídeo para conversão."));
                 }
                 resolve();
             });
         });
+    } catch (e) {
+        
+        
+        console.warn("Sanitização falhou, tentando com arquivo original...");
+        
+        await fsp.copyFile(inputPath, fixedInputPath);
+    }
 
-        const stats = await fsp.stat(outputPath);
-        if (stats.size < MAX_SIZE_BYTES) {
-            return;
+    
+
+    
+    const format = options?.format;
+    let baseFilter;
+
+    if (format === 'stretch') {
+        baseFilter = "scale=256:256:flags=lanczos";
+    } else if (format === 'square') {
+        baseFilter = "scale=256:256:force_original_aspect_ratio=increase,crop=256:256";
+    } else {
+        baseFilter = "scale=256:256:force_original_aspect_ratio=decrease";
+    }
+
+    
+    for (const params of optimizationSteps) {
+        
+        
+        const videoFilter = `${baseFilter},fps=${params.fps},format=rgb24,split[s0][s1];[s0]palettegen=max_colors=254[p];[s1][p]paletteuse=dither=bayer`;
+
+        const ffmpegCommand = `ffmpeg -i "${fixedInputPath}" -y ` +
+            `-vf "${videoFilter}" ` +
+            `-c:v libwebp -lossless 0 -q:v ${params.quality} -loop 0 -preset default -an -fps_mode passthrough "${outputPath}"`;
+
+        try {
+            await new Promise((resolve, reject) => {
+                exec(ffmpegCommand, (error, stdout, stderr) => {
+                    if (error) {
+                        console.error(`Tentativa q=${params.quality} falhou:`, stderr);
+                        return reject(new Error(`FFmpeg falhou: ${stderr}`));
+                    }
+                    resolve();
+                });
+            });
+
+            const stats = await fsp.stat(outputPath);
+            
+            if (stats.size < MAX_SIZE_BYTES) {
+                return; 
+            }
+        } catch (err) {
+            
+            
+            lastError = err;
         }
     }
-    throw new Error(`Não foi possível otimizar o sticker para menos de 1 MB.`);
+
+    
+    
+    try {
+        const stats = await fsp.stat(outputPath);
+        if (stats.size > MAX_SIZE_BYTES) { 
+            throw new Error("O vídeo é muito complexo para virar sticker (mesmo com qualidade baixa).");
+        }
+    } catch (e) {
+        console.error("Erro final na verificação do arquivo de saída:", e);
+        if (lastError) {
+            throw new Error(`Não foi possível converter este vídeo. Erro original: ${lastError.message || lastError}`);
+        }
+        throw new Error(`Não foi possível converter este vídeo. Detalhes: ${e.message}`);
+    }
 }
+
 
 async function handleStickerCommand(sock, msg, msgDetails) {
     const { sender, commandText, messageType, quotedMsgInfo, commandSenderJid } = msgDetails;
-    
+    console.log(`[Sticker] Comando iniciado por ${sender} (${commandSenderJid})`);
+
     let mediaToProcess = null;
     let isDownloadedFromUrl = false;
     let downloadedFilePath = '';
@@ -151,7 +246,7 @@ async function handleStickerCommand(sock, msg, msgDetails) {
     }
 
     const argsString = (commandText || '').substring(msgDetails.command.length).trim();
-    
+
     if (!mediaToProcess) {
         const urlRegex = /(https?:\/\/[^\s]+)/;
         const urlMatch = argsString.match(urlRegex);
@@ -160,30 +255,28 @@ async function handleStickerCommand(sock, msg, msgDetails) {
         if (url) {
             try {
                 await sock.sendMessage(sender, { react: { text: '🔗', key: msg.key } });
-                const tempDir = path.join(__dirname, '..', '..', 'temp', 'downloads');
-                await fsp.mkdir(tempDir, { recursive: true });
+                const tempDir = await getTempDir('downloads');
                 const randomId = crypto.randomBytes(8).toString('hex');
                 const tempOutputPath = path.join(tempDir, `${randomId}.%(ext)s`);
-                const ytdlpCommand = `yt-dlp -f 'bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/best[ext=mp4]/best' -o "${tempOutputPath}" "${url}"`;
-                
+                const ytdlpCommand = `python3.11 -m yt_dlp -f 'bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/best[ext=mp4]/best' -o "${tempOutputPath}" "${url}"`;
+
                 downloadedFilePath = await new Promise((resolve, reject) => {
                     exec(ytdlpCommand, { timeout: 300000 }, async (error, stdout, stderr) => {
                         if (error) {
                             console.error('[YTDLP Sticker Error]:', stderr);
                             return reject(new Error('Não foi possível baixar o vídeo do link.'));
                         }
-                        const downloadedFileMatch = stdout.match(/\[download\] Destination: (.*)/);
-                        if (downloadedFileMatch && downloadedFileMatch[1]) {
-                            resolve(downloadedFileMatch[1].trim());
-                        } else {
-                           try {
-                               const files = await fsp.readdir(tempDir);
-                               const foundFile = files.find(f => f.startsWith(randomId));
-                               if(foundFile) resolve(path.join(tempDir, foundFile));
-                               else reject(new Error("Download concluído, mas não encontrei o ficheiro final."));
-                           } catch (scanError) {
-                                reject(scanError);
-                           }
+
+                        try {
+                            const files = await fsp.readdir(tempDir);
+                            const foundFile = files.find(f => f.startsWith(randomId));
+                            if (foundFile) {
+                                resolve(path.join(tempDir, foundFile));
+                            } else {
+                                reject(new Error("Download concluído, mas não encontrei o ficheiro final."));
+                            }
+                        } catch (scanError) {
+                            reject(scanError);
                         }
                     });
                 });
@@ -201,7 +294,40 @@ async function handleStickerCommand(sock, msg, msgDetails) {
         return true;
     }
 
+    
+    let pack = 'Criado com Jul.ia';
+    let author = 'by @nekozylajs';
+    let format = 'original';
+
+    const savedPreset = userPresetManager.getPreset(sender, commandSenderJid);
+    if (savedPreset) {
+        if (savedPreset.pack !== undefined) pack = savedPreset.pack;
+        if (savedPreset.author !== undefined) author = savedPreset.author;
+        if (savedPreset.format) format = savedPreset.format;
+    }
+
+    const packRegex = /pack:(?:"([^"]+)"|'([^']+)')/i;
+    const authorRegex = /autor:(?:"([^"]+)"|'([^']+)')/i;
+    const packMatch = argsString.match(packRegex);
+    const authorMatch = argsString.match(authorRegex);
+    if (packMatch) pack = packMatch[1] || packMatch[2] || '';
+    if (authorMatch) author = authorMatch[1] || authorMatch[2] || '';
+
+    const remainingArgs = argsString.replace(packRegex, '').replace(authorRegex, '').trim().toLowerCase();
+
+    if (remainingArgs.includes('quadrado')) format = 'square';
+    else if (remainingArgs.includes('esticado')) format = 'stretch';
+    else if (remainingArgs.includes('original')) format = 'original';
+
+    const options = { pack, author, format };
+    // --- FIM PRESETS ---
+
     const isAnimated = isDownloadedFromUrl || (mediaToProcess && getContentType(mediaToProcess.message) === 'videoMessage');
+
+    // Força formato quadrado para vídeos se estiver como original
+    if (isAnimated && options.format === 'original') {
+        options.format = 'square';
+    }
 
     if (isAnimated) {
         const isUserAlreadyInQueue = (isProcessing && currentlyProcessingJid === commandSenderJid) || videoQueue.some(job => job.commandSenderJid === commandSenderJid);
@@ -211,7 +337,7 @@ async function handleStickerCommand(sock, msg, msgDetails) {
             return;
         }
 
-        const job = { sock, msg, msgDetails, mediaToProcess, downloadedFilePath, isDownloadedFromUrl, commandSenderJid };
+        const job = { sock, msg, msgDetails, mediaToProcess, downloadedFilePath, isDownloadedFromUrl, commandSenderJid, options };
         videoQueue.push(job);
 
         await sock.sendMessage(sender, { text: `✅ Seu pedido de sticker de vídeo foi adicionado à fila! Posição: *${videoQueue.length}* de ${videoQueue.length}.` }, { quoted: msg });
@@ -221,35 +347,45 @@ async function handleStickerCommand(sock, msg, msgDetails) {
         }
 
     } else {
+        // IMAGEM ESTÁTICA
         try {
             await sock.sendMessage(sender, { react: { text: '⚙️', key: msg.key } });
-            const buffer = await downloadMediaMessage(mediaToProcess, 'buffer', {}, { logger: undefined });
-            const options = { pack: 'Criado com Jul.ia', author: 'by @nekozylajs', format: 'original' };
-            const packRegex = /pack:(?:"([^"]+)"|'([^']+)')/i;
-            const packMatch = argsString.match(packRegex);
-            if (packMatch) options.pack = packMatch[1] || packMatch[2] || '';
-            const remainingArgs = argsString.replace(packRegex, '').trim().toLowerCase();
-            if (remainingArgs.includes('quadrado')) options.format = 'square';
-            if (remainingArgs.includes('esticado')) options.format = 'stretch';
-            
+
+            // ALTERAÇÃO: Usando downloadContentFromMessage para imagens estáticas também
+            const messageType = getContentType(mediaToProcess.message);
+            const stream = await downloadContentFromMessage(mediaToProcess.message[messageType], messageType.replace('Message', ''));
+
+            let buffer = Buffer.from([]);
+            for await (const chunk of stream) {
+                buffer = Buffer.concat([buffer, chunk]);
+            }
+
             const resizeOptions = { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } };
             if (options.format === 'square') resizeOptions.fit = 'cover';
             else if (options.format === 'stretch') resizeOptions.fit = 'fill';
-            
+
             let finalBuffer = await sharp(buffer)
-                .resize(512, 512, resizeOptions)
+                .resize(256, 256, resizeOptions)
                 .webp({ quality: 80 })
                 .toBuffer();
-            
+
             finalBuffer = await addExif(finalBuffer, options);
             await sock.sendMessage(sender, { react: { text: '✅', key: msg.key } });
             await sock.sendMessage(sender, { sticker: finalBuffer });
         } catch (err) {
-             console.error('[Sticker] Erro ao processar figurinha estática:', err);
-             await sock.sendMessage(sender, { react: { text: '❌', key: msg.key } });
-             await sock.sendMessage(sender, { text: `Tive um probleminha pra fazer essa figurinha 😕.\n\n_${err.message}_` }, { quoted: msg });
+            console.error('[Sticker] Erro ao processar figurinha estática:', err);
+            await sock.sendMessage(sender, { react: { text: '❌', key: msg.key } });
+            await sock.sendMessage(sender, { text: `Tive um probleminha pra fazer essa figurinha 😕.\n\n_${err.message}_` }, { quoted: msg });
         }
     }
 }
+
+handleStickerCommand.commandData = {
+    name: "sticker",
+    description: "Cria figurinhas animadas ou estáticas (imagem/vídeo/url).",
+    category: "midia",
+    usage: "/sticker [pack:nome] [autor:nome] [quadrado/esticado]",
+    aliases: ["/f", "/fig", "/s"]
+};
 
 module.exports = handleStickerCommand;

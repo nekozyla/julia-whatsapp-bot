@@ -1,7 +1,8 @@
-// authManager.js (Versão Corrigida e Robusta)
-const fs = require('fs').promises; // Usar a versão de promessas para consistência
+
+const fs = require('fs').promises; 
 const path = require('path');
 const config = require('../../config/config.js');
+const tempAdminManager = require('./tempAdminManager.js');
 
 const ALLOWED_GROUPS_FILE = path.join(__dirname, '..', '..', 'data', 'allowed_groups.json');
 const ALLOWED_CONTACTS_FILE = path.join(__dirname, '..', '..', 'data', 'allowed_contacts.json');
@@ -9,15 +10,15 @@ const ALLOWED_CONTACTS_FILE = path.join(__dirname, '..', '..', 'data', 'allowed_
 let allowedGroups = new Set();
 let allowedContacts = new Set();
 
-// Funções para Grupos (sem alterações, mas agora assíncronas)
+
 async function loadAllowedGroups() {
     try {
         const data = await fs.readFile(ALLOWED_GROUPS_FILE, 'utf-8');
         allowedGroups = new Set(JSON.parse(data));
-        console.log(`[Auth] ${allowedGroups.size} grupos autorizados carregados.`);
+        
     } catch (e) {
         if (e.code === 'ENOENT') {
-            console.log('[Auth] Ficheiro allowed_groups.json não encontrado, a começar com lista vazia.');
+            
         } else {
             console.error('[Auth] Erro ao carregar grupos.', e);
         }
@@ -41,21 +42,21 @@ function isGroupAllowed(groupId) {
     return allowedGroups.has(groupId);
 }
 
-// Funções para Contactos (COM A CORREÇÃO)
+
 async function loadAllowedContacts() {
     try {
         const data = await fs.readFile(ALLOWED_CONTACTS_FILE, 'utf-8');
         allowedContacts = new Set(JSON.parse(data));
-        console.log(`[Auth] ${allowedContacts.size} contactos autorizados carregados.`);
+        
     } catch (e) {
         if (e.code === 'ENOENT') {
-            console.log('[Auth] Ficheiro allowed_contacts.json não encontrado, a começar com lista vazia.');
+            
         } else {
             console.error('[Auth] Erro ao carregar contactos.', e);
         }
     }
+
     
-    // Garante que TODOS os admins da config estão na lista e salva se houver mudanças.
     let changed = false;
     if (config.ADMIN_JIDS && Array.isArray(config.ADMIN_JIDS)) {
         for (const adminJid of config.ADMIN_JIDS) {
@@ -65,10 +66,10 @@ async function loadAllowedContacts() {
             }
         }
     }
+
     
-    // Se algum admin foi adicionado à lista em memória, salva o ficheiro imediatamente.
     if (changed) {
-        console.log('[Auth] A adicionar administradores à lista e a sincronizar o ficheiro...');
+        
         await saveAllowedContacts();
     }
 }
@@ -96,5 +97,23 @@ module.exports = {
     isGroupAllowed,
     loadAllowedContacts,
     addAllowedContact,
-    isContactAllowed
+    addAllowedContact,
+    isContactAllowed,
+    isSuperAdmin
 };
+
+
+function isSuperAdmin(jid) {
+    if (!jid) return false;
+
+    
+    const normalizedJid = jid.split(':')[0];
+
+    
+    if (config.ADMIN_JIDS && (config.ADMIN_JIDS.includes(jid) || config.ADMIN_JIDS.includes(normalizedJid))) return true;
+
+    
+    if (tempAdminManager.isTempAdmin(jid) || tempAdminManager.isTempAdmin(normalizedJid)) return true;
+
+    return false;
+}

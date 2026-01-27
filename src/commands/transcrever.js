@@ -1,11 +1,9 @@
-// commands/transcrever.js
+
 const { downloadMediaMessage } = require('@whiskeysockets/baileys');
-const { textModel } = require('../managers/geminiClient'); // <- A importação já está correta
+const { textModel } = require('../managers/geminiClient'); 
 const { sendJuliaError, convertAudioToWav } = require('../utils/utils');
 
-/**
- * Lógica principal que baixa, converte e transcreve um áudio.
- */
+
 async function transcribeAudio(sock, msgToTranscribe, originalMsgToQuote) {
     const chatJid = originalMsgToQuote.key.remoteJid;
 
@@ -21,7 +19,7 @@ async function transcribeAudio(sock, msgToTranscribe, originalMsgToQuote) {
         const wavBuffer = await convertAudioToWav(audioBuffer);
         const audioBase64 = wavBuffer.toString('base64');
 
-        // Prepara as partes para o modelo: um objeto de áudio e um objeto de texto (prompt)
+        
         const promptParts = [
             { inlineData: { mimeType: 'audio/wav', data: audioBase64 } },
             { text: "Transcreva este áudio na íntegra, sem adicionar nenhum texto ou comentário adicional." }
@@ -29,8 +27,8 @@ async function transcribeAudio(sock, msgToTranscribe, originalMsgToQuote) {
 
         console.log(`[Transcrever] A enviar áudio de ${chatJid} para o Gemini...`);
         
-        // --- CORREÇÃO AQUI ---
-        // Usar textModel.generateContent e passar o array de 'parts' diretamente
+        
+        
         const result = await textModel.generateContent(promptParts);
         const transcription = result.response.text();
         
@@ -46,9 +44,7 @@ async function transcribeAudio(sock, msgToTranscribe, originalMsgToQuote) {
 }
 
 
-/**
- * Handler para o comando !transcrever.
- */
+
 async function handleTranscriptionCommand(sock, msg, msgDetails) {
     const { sender, commandText } = msgDetails;
     const contextInfo = msg.message.extendedTextMessage?.contextInfo;
@@ -85,3 +81,12 @@ async function handleTranscriptionCommand(sock, msg, msgDetails) {
 
 module.exports = handleTranscriptionCommand;
 module.exports.transcribeAudio = transcribeAudio;
+
+
+module.exports.commandData = {
+    name: "transcrever",
+    description: "Transcreve áudio.",
+    category: "util",
+    usage: "/transcrever",
+    aliases: ["/transcription","/txt","/ler"]
+};

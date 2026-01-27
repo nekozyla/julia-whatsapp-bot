@@ -1,15 +1,10 @@
-// commands/renomear.js (Versão Final sem wa-sticker-formatter)
+
 const { downloadMediaMessage, getContentType } = require('@whiskeysockets/baileys');
 const crypto = require('crypto');
 const { sendJuliaError } = require('../utils/utils');
 const { Image } = require('node-webpmux');
 
-/**
- * Adiciona metadados EXIF a um buffer de imagem WebP.
- * @param {Buffer} buffer - O buffer do sticker .webp.
- * @param {object} options - As opções com pack e autor.
- * @returns {Promise<Buffer>} - O buffer do sticker com novos metadados.
- */
+
 async function addExif(buffer, options) {
     const stickerPackId = crypto.randomBytes(16).toString('hex');
     const json = {
@@ -67,3 +62,12 @@ async function handleRenameCommand(sock, msg, msgDetails) {
 }
 
 module.exports = handleRenameCommand;
+
+
+module.exports.commandData = {
+    name: "renomear",
+    description: "Renomeia pacote/autor de figurinha.",
+    category: "midia",
+    usage: "/renomear",
+    aliases: ["/rename","/nome","/r"]
+};

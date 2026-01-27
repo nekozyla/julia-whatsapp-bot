@@ -1,4 +1,4 @@
-// commands/adicionar.js
+
 const authManager = require('../managers/authManager.js');
 
 module.exports = async (sock, msg, msgDetails) => {
@@ -11,7 +11,7 @@ module.exports = async (sock, msg, msgDetails) => {
     const contextInfo = msg.message?.extendedTextMessage?.contextInfo;
     const jidArgument = commandText.split(' ')[1];
 
-    // Cenário 1: Adicionar por resposta
+    
     if (contextInfo && contextInfo.participant) {
         const userToAllow = contextInfo.participant;
         if (await authManager.addAllowedContact(userToAllow)) {
@@ -22,7 +22,7 @@ module.exports = async (sock, msg, msgDetails) => {
         return true;
     }
 
-    // Cenário 2: Adicionar por JID
+    
     if (jidArgument) {
         const jidToAdd = jidArgument.trim();
         if (jidToAdd.endsWith('@g.us')) {
@@ -37,7 +37,7 @@ module.exports = async (sock, msg, msgDetails) => {
         return true;
     }
 
-    // Cenário 3: Adicionar o grupo atual
+    
     if (isGroup) {
         if (await authManager.addGroup(sender)) {
             await sock.sendMessage(sender, { text: `✅ Este grupo foi adicionado à lista de permissões.` });
@@ -49,4 +49,13 @@ module.exports = async (sock, msg, msgDetails) => {
 
     await sock.sendMessage(sender, { text: "Uso: /adicionar <JID> ou responda a uma mensagem." });
     return true;
+};
+
+
+module.exports.commandData = {
+    name: "adicionar",
+    description: "Whitelist global.",
+    category: "super",
+    usage: "/adicionar",
+    aliases: ["/permitir","/whitelist"]
 };

@@ -1,20 +1,20 @@
-// src/commands/broadcast.js (Caminhos Corrigidos)
-const { ADMIN_JID } = require('../../config/config.js'); // <-- CAMINHO CORRIGIDO
-const { sendJuliaError } = require('../utils/utils.js'); // <-- CAMINHO CORRIGIDO
-const contactManager = require('../managers/contactManager.js'); // <-- CAMINHO CORRIGIDO
 
-// Função para criar um atraso (sleep)
+const authManager = require('../managers/authManager.js');
+const { sendJuliaError } = require('../utils/utils.js');
+const contactManager = require('../managers/contactManager.js');
+
+
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function handleBroadcastCommand(sock, msg, msgDetails) {
     const { sender, command, commandText, commandSenderJid } = msgDetails;
 
-    if (commandSenderJid !== ADMIN_JID) {
-        return true; // Ignora silenciosamente
+    if (!authManager.isSuperAdmin(commandSenderJid)) {
+        return true; 
     }
 
     const args = commandText.substring(command.length).trim().split(' ');
-    const broadcastType = args.shift()?.toLowerCase(); // Pega o primeiro argumento (pv, grupos, todos)
+    const broadcastType = args.shift()?.toLowerCase(); 
     const messageToSend = args.join(' ');
 
     const usageText = "Uso incorreto. Especifique o alvo da transmissão:\n\n`!broadcast pv [mensagem]` (privados)\n`!broadcast grupos [mensagem]` (grupos)\n`!broadcast todos [mensagem]` (ambos)";
@@ -29,7 +29,7 @@ async function handleBroadcastCommand(sock, msg, msgDetails) {
         let groupCount = 0;
         let privateCount = 0;
 
-        // Monta a lista de destinatários com base no tipo
+        
         if (broadcastType === 'pv' || broadcastType === 'todos') {
             const privateContacts = contactManager.getContacts().filter(jid => jid !== ADMIN_JID);
             contactsToBroadcast.push(...privateContacts);
@@ -42,7 +42,7 @@ async function handleBroadcastCommand(sock, msg, msgDetails) {
             groupCount = groupJids.length;
         }
 
-        // Remove duplicatas, caso um grupo esteja na lista de contatos
+        
         contactsToBroadcast = [...new Set(contactsToBroadcast)];
 
         if (contactsToBroadcast.length === 0) {
@@ -61,8 +61,8 @@ async function handleBroadcastCommand(sock, msg, msgDetails) {
         for (let i = 0; i < contactsToBroadcast.length; i++) {
             const jid = contactsToBroadcast[i];
             try {
-                // Atraso aleatório curto entre cada mensagem
-                const shortDelay = Math.floor(Math.random() * 20000) + 10000; // 10-30 segundos
+                
+                const shortDelay = Math.floor(Math.random() * 20000) + 10000; 
                 console.log(`[Broadcast] A aguardar ${shortDelay / 1000}s antes de enviar para ${jid} (${i + 1}/${contactsToBroadcast.length})`);
                 await sleep(shortDelay);
 
@@ -74,7 +74,7 @@ async function handleBroadcastCommand(sock, msg, msgDetails) {
                 errorCount++;
             }
         }
-        
+
         const reportText = `🏁 Transmissão concluída!\n\n- *Enviadas com sucesso:* ${successCount}\n- *Falhas:* ${errorCount}`;
         await sock.sendMessage(sender, { text: reportText });
 
@@ -82,8 +82,16 @@ async function handleBroadcastCommand(sock, msg, msgDetails) {
         await sendJuliaError(sock, sender, msg, error);
     }
 
-    return true; 
+    return true;
 }
+
+handleBroadcastCommand.commandData = {
+    name: "broadcast",
+    description: "Envia mensagem para todos (pv/grupos/todos).",
+    category: "super",
+    usage: "/broadcast <pv|grupos|todos> <mensagem>",
+    aliases: ["/bc", "/anuncio"]
+};
 
 module.exports = handleBroadcastCommand;
 

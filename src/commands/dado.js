@@ -1,12 +1,12 @@
-// commands/dado.js
+
 
 async function handleDiceRollCommand(sock, msg, msgDetails) {
     const { sender, commandText } = msgDetails;
 
     const args = commandText.split(' ').slice(1);
-    const diceNotation = args[0] || '1d6'; // Se não houver argumentos, o padrão é 1d6
+    const diceNotation = args[0] || '1d6'; 
 
-    // Expressão regular para validar e extrair os números da notação (ex: "2d8", "d20")
+    
     const diceRegex = /^(\d+)?d(\d+)$/i;
     const match = diceNotation.match(diceRegex);
 
@@ -15,11 +15,11 @@ async function handleDiceRollCommand(sock, msg, msgDetails) {
         return true;
     }
 
-    // Extrai os números, define 1 como padrão para o número de dados se for omitido (ex: d20)
+    
     const numberOfDice = match[1] ? parseInt(match[1], 10) : 1;
     const numberOfSides = parseInt(match[2], 10);
 
-    // Limites para evitar spam ou sobrecarga
+    
     if (numberOfDice > 100) {
         await sock.sendMessage(sender, { text: "Não consigo rolar mais de 100 dados de uma vez! 😅" }, { quoted: msg });
         return true;
@@ -62,3 +62,12 @@ async function handleDiceRollCommand(sock, msg, msgDetails) {
 }
 
 module.exports = handleDiceRollCommand;
+
+
+module.exports.commandData = {
+    name: "dado",
+    description: "Rola um dadinho.",
+    category: "diversao",
+    usage: "/dado",
+    aliases: ["/d","/dice","/rolar"]
+};

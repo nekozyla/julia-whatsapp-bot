@@ -1,0 +1,2073 @@
+
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Profile Preview</title>
+        <style>
+            body { background: #222; display: flex; flex-wrap: wrap; justify-content: center; }
+        </style>
+    </head>
+    <body>
+
+        <div style="margin: 20px; text-align: center; display: inline-block;">
+            <h2 style="color: #fff; font-family: sans-serif;">Default Theme</h2>
+            <iframe 
+                srcdoc="
+<!DOCTYPE html>
+<html lang=&quot;pt-BR&quot;>
+<head>
+    <meta charset=&quot;UTF-8&quot;>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Press+Start+2P&display=swap');
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            width: 600px;
+            height: 600px;
+            font-family: 'Inter', sans-serif;
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .card {
+            width: 600px;
+            height: 600px;
+            background: rgba(255, 255, 255, 0.05);
+            
+            /* LCD / GameBoy Theme Support */
+
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            color: #fff;
+            
+            /* Minecraft Support */
+        }
+
+        /* Ambient Glow/Background similar to NP card */
+
+        .background-blur {
+            position: absolute;
+            top: -50px;
+            left: -50px;
+            width: 120%;
+            height: 120%;
+            background-image: url('https://telegra.ph/file/24fa902ead26340f3df2c.png');
+            background-size: cover;
+            background-position: center;
+            filter: blur(50px) brightness(0.3) saturate(1.2);
+            z-index: 0;
+            opacity: 0.8;
+            
+            /* Hide blur for LCD */
+            
+            
+            /* Minecraft: Dirt Texture */
+            
+            /* iOS 6 Skeuomorphic Leather Texture */
+
+            /* Snow Background */
+
+            /* Custom Background */
+
+        }
+
+        
+        /* Minecraft Background Override - Removed as we used .background-blur */
+
+        .content-layer {
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            padding: 40px;
+            background: rgba(0,0,0,0.0);
+            
+            /* LCD / GameBoy Screen */
+            
+            
+        }
+        
+        /* Battery LED for GameBoy */
+
+        /* Header: Avatar + Names */
+        .header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 30px;
+            
+            
+            
+        }
+
+        .avatar-container {
+            width: 130px;
+            height: 130px;
+            margin-right: 25px;
+            position: relative;
+        }
+
+        .avatar {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+            
+            
+            
+        }
+
+        .names-col {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .username {
+            font-size: 36px;
+            font-weight: 800;
+            line-height: 1.1;
+            color: #fff;
+            text-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            margin-bottom: 4px;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            width: 100%;
+            
+            
+            
+        }
+
+        .nickname {
+            font-size: 18px;
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 500;
+            font-family: &#x27;Inter&#x27;, sans-serif, sans-serif;
+            
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 30px;
+            
+            
+        }
+
+        .stat-box {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 15px 20px;
+            display: flex;
+            flex-direction: column;
+             
+            /* If not LCD, add backdrop */
+            backdrop-filter: blur(10px);
+            
+            
+        }
+        
+        /* Screws for Skeuo Stats */
+
+        .stat-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 6px;
+            font-family: &#x27;Inter&#x27;, sans-serif, sans-serif;
+            
+            
+        }
+
+        .stat-value {
+            font-size: 22px;
+            font-weight: 700;
+            color: #fff;
+            
+        }
+        
+        .rank-value {
+             color: #FCD34D;
+             
+             
+        }
+
+        /* Music / Activity Section */
+        .music-section {
+            margin-top: auto; /* Push to bottom */
+             /* Reduced gap for Minecraft */
+            
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 20px;
+            padding: 20px;
+            
+            display: flex;
+            align-items: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            
+            
+            
+        }
+
+        .music-art {
+            width: 70px;
+            height: 70px;
+            border-radius: 8px;
+            object-fit: cover;
+            background: #333;
+            margin-right: 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            flex-shrink: 0;
+            
+            
+            
+        }
+
+        .music-info {
+            flex: 1;
+            overflow: hidden;
+        }
+        
+        .music-status {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #1DB954; /* Spotify Green (Brighter for MC) */
+            font-weight: 700;
+            margin-bottom: 4px;
+            display:  flex;
+            align-items: center;
+            
+        }
+        
+        .music-status svg {
+            width: 12px;
+            height: 12px;
+            margin-right: 4px;
+            fill: #1DB954;
+        }
+
+        .track-name {
+            font-size: 16px;
+            font-weight: 700;
+            color: #fff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 2px;
+            
+            
+        }
+
+        .artist-name {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.8);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            
+            
+        }
+
+        /* Badges row inline */
+        .badges-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            background: rgba(255,255,255,0.15);
+            color: #fff;
+            backdrop-filter: blur(5px);
+            white-space: nowrap;
+        }
+        
+        .badge-admin {
+            background: rgba(139, 92, 246, 0.3);
+            color: #ddd6fe;
+            border: 1px solid rgba(139, 92, 246, 0.4);
+            
+        }
+
+        .badge-dev {
+            background: rgba(6, 182, 212, 0.3); /* Cyan */
+            color: #a5f3fc;
+            border: 1px solid rgba(6, 182, 212, 0.4);
+            
+        }
+
+        .badge-spouse {
+            background: rgba(236, 72, 153, 0.3);
+            color: #fbcfe8;
+            border: 1px solid rgba(236, 72, 153, 0.4);
+            display: flex;
+            align-items: center;
+        }
+        
+        .spouse-heart {
+            margin-right: 4px;
+            font-size: 12px;
+        }
+
+        /* Decoration circles */
+        .deco-circle {
+            position: absolute;
+            border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.05);
+            z-index: 1;
+        }
+        .c1 { width: 400px; height: 400px; top: -100px; right: -100px; }
+        .c2 { width: 300px; height: 300px; bottom: 50px; left: -80px; }
+
+        /* Snowflake Overlay */
+        .snow-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cg fill='%23ffcccc'%3E%3Cpath d='M12 0L10 4H14L12 0ZM12 24L10 20H14L12 24Z'/%3E%3Cpath d='M0 12L4 10V14L0 12ZM24 12L20 10V14L24 12Z'/%3E%3Cpath d='M3.5 3.5L6.5 6.5L6.5 3.5L3.5 3.5Z'/%3E%3Cpath d='M20.5 3.5L17.5 6.5L20.5 6.5L20.5 3.5Z'/%3E%3Cpath d='M3.5 20.5L6.5 17.5L3.5 17.5L3.5 20.5Z'/%3E%3Cpath d='M20.5 20.5L17.5 17.5L20.5 17.5L20.5 20.5Z'/%3E%3C/g%3E%3C/svg%3E&quot;);
+            opacity: 0.6;
+            z-index: 5; /* Above background, below content if content is higher */
+            pointer-events: none;
+            animation: snow 20s linear infinite;
+        }
+        @keyframes snow {
+            from { background-position: 0 0; }
+            to { background-position: 48px 48px; }
+        }
+
+
+        .bio-section {
+            font-size: 15px;
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 25px;
+            
+            
+            text-align: left;
+            font-style: italic;
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            padding: 10px 15px;
+            border-radius: 8px;
+            border-left: 3px solid linear-gradient(90deg, #1db954, #1ed760);
+            line-height: 1.4;
+            
+            
+
+        }
+
+    </style>
+</head>
+<body>
+    <div class=&quot;card&quot;>
+        <div class=&quot;background-blur&quot;></div>
+        <div class=&quot;deco-circle c1&quot;></div>
+        <div class=&quot;deco-circle c2&quot;></div>
+        
+        <div class=&quot;content-layer&quot;>
+            
+            <div class=&quot;header&quot;>
+                <div class=&quot;avatar-container&quot;>
+                    <img src=&quot;https://telegra.ph/file/24fa902ead26340f3df2c.png&quot; class=&quot;avatar&quot; onerror=&quot;this.src='https://telegra.ph/file/24fa902ead26340f3df2c.png'&quot;>
+                </div>
+                <div class=&quot;names-col&quot;>
+                    <div class=&quot;username&quot;>Julia Bot</div>
+                    <div class=&quot;nickname&quot;>@julia</div>
+                    
+                <div class=&quot;badges-row&quot;>
+                        <div class=&quot;badge badge-dev&quot;>DEV</div>
+                        <div class=&quot;badge badge-admin&quot;>ADMIN</div>
+                        <div class=&quot;badge badge-spouse&quot;>
+                            <span class=&quot;spouse-heart&quot;>❤️</span> Administrador
+                        </div>
+                                <div class=&quot;badge&quot; style=&quot;background: #00ccffCC; border: 1px solid #00ccff;&quot;>DEV</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class=&quot;bio-section&quot;>
+                &quot;Sou um bot muito legal criando previews!&quot;
+            </div>
+
+            <div class=&quot;stats-grid&quot;>
+                <div class=&quot;stat-box&quot;>
+                    <span class=&quot;stat-label&quot;>Ranking</span>
+                    <span class=&quot;stat-value rank-value&quot;>#1</span>
+                </div>
+                <div class=&quot;stat-box&quot;>
+                    <span class=&quot;stat-label&quot;>Mensagens</span>
+                    <span class=&quot;stat-value&quot;>1337</span>
+                </div>
+                <div class=&quot;stat-box&quot;>
+                    <span class=&quot;stat-label&quot;>Rep</span>
+                    <span class=&quot;stat-value&quot; style=&quot;color: #60A5FA;&quot;>42</span>
+                </div>
+                <div class=&quot;stat-box&quot;>
+                        <span class=&quot;stat-label&quot;>Aniversário</span>
+                        <span class=&quot;stat-value&quot; style=&quot;font-size: 18px;&quot;>20/01 ♒ Aquário</span>
+                </div>
+            </div>
+
+            <div class=&quot;music-section&quot;>
+                <img src=&quot;https://i.scdn.co/image/ab67616d0000b2733d98a0da7c77f09680208363&quot; class=&quot;music-art&quot; crossorigin=&quot;anonymous&quot; onerror=&quot;this.style.display='none'&quot;>
+                <div class=&quot;music-info&quot;>
+                    <div class=&quot;music-status&quot;>
+                            <svg viewBox=&quot;0 0 24 24&quot;><path d=&quot;M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z&quot;/></svg> 
+                            Ouvindo Agora
+                    </div>
+                    <div class=&quot;track-name&quot;>Super Shy</div>
+                    <div class=&quot;artist-name&quot;>NewJeans</div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</body>
+</html>
+"
+                style="width: 620px; height: 620px; border: none; background: transparent;"
+                sandbox="allow-scripts"
+            ></iframe>
+        </div>
+    
+        <div style="margin: 20px; text-align: center; display: inline-block;">
+            <h2 style="color: #fff; font-family: sans-serif;">Minecraft Theme</h2>
+            <iframe 
+                srcdoc="
+<!DOCTYPE html>
+<html lang=&quot;pt-BR&quot;>
+<head>
+    <meta charset=&quot;UTF-8&quot;>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Press+Start+2P&display=swap');
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            width: 600px;
+            height: 600px;
+            font-family: 'Press Start 2P', cursive;
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .card {
+            width: 600px;
+            height: 600px;
+            background: #c6c6c6;
+            
+            /* LCD / GameBoy Theme Support */
+
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            color: #3f3f3f;
+            
+            /* Minecraft Support */
+            background-color: #000000;
+            border: none;
+            font-family: 'Press Start 2P', cursive;
+            color: #404040;
+            justify-content: center; /* Center the window vertically */
+        }
+
+        /* Ambient Glow/Background similar to NP card */
+
+        .background-blur {
+            position: absolute;
+            top: -50px;
+            left: -50px;
+            width: 120%;
+            height: 120%;
+            background-image: url('https://telegra.ph/file/24fa902ead26340f3df2c.png');
+            background-size: cover;
+            background-position: center;
+            filter: blur(50px) brightness(0.3) saturate(1.2);
+            z-index: 0;
+            opacity: 0.8;
+            
+            /* Hide blur for LCD */
+            
+            
+            /* Minecraft: Dirt Texture */
+            display: block;
+            filter: none;
+            background-image: url('https://assets.digitalocean.com/articles/alligator/css/dirt.jpg');
+            background-size: 64px;
+            background-repeat: repeat;
+            image-rendering: pixelated;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            opacity: 0.3;
+            
+            /* iOS 6 Skeuomorphic Leather Texture */
+
+            /* Snow Background */
+
+            /* Custom Background */
+
+        }
+
+        
+        /* Minecraft Background Override - Removed as we used .background-blur */
+
+        .content-layer {
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            padding: 40px;
+            background: rgba(0,0,0,0.0);
+            
+            /* LCD / GameBoy Screen */
+            
+            /* The Grey Window */
+            margin: 25px; /* Reduced margin to optimize space */
+            height: auto;
+            flex: 0; /* Don't stretch */
+            background: #C6C6C6;
+            border-top: 4px solid #fff;
+            border-left: 4px solid #fff;
+            border-right: 4px solid #555;
+            border-bottom: 4px solid #555;
+            padding: 15px; /* Reduced padding */
+            box-shadow: 6px 6px 0 rgba(0,0,0,0.5);
+            image-rendering: pixelated;
+            
+        }
+        
+        /* Battery LED for GameBoy */
+
+        /* Header: Avatar + Names */
+        .header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 30px;
+            margin-bottom: 15px;
+            
+            
+        }
+
+        .avatar-container {
+            width: 130px;
+            height: 130px;
+            margin-right: 25px;
+            position: relative;
+            width: 100px; 
+            height: 100px;
+            margin-right: 15px;
+        }
+
+        .avatar {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 4px solid #ffffff #555555 #555555 #ffffff;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+            
+            
+            border-radius: 0;
+            border: 2px solid #555;
+            border-bottom: 2px solid #fff;
+            border-right: 2px solid #fff;
+            border-top: 2px solid #373737;
+            border-left: 2px solid #373737;
+            image-rendering: pixelated;
+            box-shadow: none;
+            
+        }
+
+        .names-col {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .username {
+            font-size: 36px;
+            font-weight: 800;
+            line-height: 1.1;
+            color: #3f3f3f;
+            text-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            margin-bottom: 4px;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            width: 100%;
+            
+            font-family: 'Press Start 2P', cursive;
+            font-size: 18px; /* Compact */
+            color: #404040; /* Dark grey for visibility on light grey bg */
+            text-shadow: none;
+            line-height: 1.4;
+            margin-bottom: 8px;
+            
+            
+        }
+
+        .nickname {
+            font-size: 18px;
+            color: #3f3f3f;
+            font-weight: 500;
+            font-family: &#x27;Press Start 2P&#x27;, cursive, sans-serif;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 10px;
+            color: #555;
+            
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 30px;
+            margin-bottom: 15px; gap: 10px;
+            
+        }
+
+        .stat-box {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid #ffffff #555555 #555555 #ffffff;
+            border-radius: 0;
+            padding: 15px 20px;
+            display: flex;
+            flex-direction: column;
+             
+            /* If not LCD, add backdrop */
+            backdrop-filter: blur(10px);
+            
+            background: #8b8b8b;
+            border-right: 2px solid #fff;
+            border-bottom: 2px solid #fff;
+            border-left: 2px solid #373737;
+            border-top: 2px solid #373737;
+            box-shadow: inset 2px 2px 0 #000; /* Deep slot look */
+            
+        }
+        
+        /* Screws for Skeuo Stats */
+
+        .stat-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #3f3f3f;
+            margin-bottom: 6px;
+            font-family: &#x27;Press Start 2P&#x27;, cursive, sans-serif;
+            font-family: 'Press Start 2P', cursive;
+            color: #e0e0e0; 
+            text-shadow: 1px 1px 0 #000; 
+            font-weight: normal; 
+            font-size: 8px;
+            
+            
+        }
+
+        .stat-value {
+            font-size: 22px;
+            font-weight: 700;
+            color: #3f3f3f;
+            font-family: 'Press Start 2P', cursive;
+            color: #ffffff; 
+            text-shadow: 2px 2px 0 rgba(0,0,0,0.5); 
+            font-size: 12px;
+            line-height: 1.5;
+            
+        }
+        
+        .rank-value {
+             color: #ffff55;
+             text-shadow: 1px 1px 0 #3f3f00;
+             
+        }
+
+        /* Music / Activity Section */
+        .music-section {
+            margin-top: auto; /* Push to bottom */
+            margin-top: 10px; /* Reduced gap for Minecraft */
+            
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 0;
+            padding: 20px;
+            
+            display: flex;
+            align-items: center;
+            border: 1px solid #ffffff #555555 #555555 #ffffff;
+            backdrop-filter: blur(10px);
+            
+            
+            background: #8b8b8b;
+            border-right: 2px solid #fff;
+            border-bottom: 2px solid #fff;
+            border-left: 2px solid #373737;
+            border-top: 2px solid #373737;
+            box-shadow: inset 2px 2px 0 #000;
+            border: none;
+            
+        }
+
+        .music-art {
+            width: 70px;
+            height: 70px;
+            border-radius: 8px;
+            object-fit: cover;
+            background: #333;
+            margin-right: 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            flex-shrink: 0;
+            
+            
+            border-radius: 0;
+            border: 2px solid #555;
+            border-bottom: 2px solid #fff;
+            border-right: 2px solid #fff;
+            border-top: 2px solid #373737;
+            border-left: 2px solid #373737;
+            box-shadow: none;
+            
+        }
+
+        .music-info {
+            flex: 1;
+            overflow: hidden;
+        }
+        
+        .music-status {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #55ff55; /* Spotify Green (Brighter for MC) */
+            font-weight: 700;
+            margin-bottom: 4px;
+            display:  flex;
+            align-items: center;
+            text-shadow: 1px 1px 0 #000;
+        }
+        
+        .music-status svg {
+            width: 12px;
+            height: 12px;
+            margin-right: 4px;
+            fill: #55ff55;
+        }
+
+        .track-name {
+            font-size: 16px;
+            font-weight: 700;
+            color: #3f3f3f;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 2px;
+            color: #ffffff; font-size: 14px; text-shadow: 1px 1px 0 rgba(0,0,0,0.5);
+            
+        }
+
+        .artist-name {
+            font-size: 14px;
+            color: #3f3f3f;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-size: 10px; color: #dddddd; text-shadow: 1px 1px 0 #000; font-weight: normal;
+            
+        }
+
+        /* Badges row inline */
+        .badges-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            background: rgba(255,255,255,0.15);
+            color: #fff;
+            backdrop-filter: blur(5px);
+            white-space: nowrap;
+        }
+        
+        .badge-admin {
+            background: rgba(139, 92, 246, 0.3);
+            color: #ddd6fe;
+            border: 1px solid rgba(139, 92, 246, 0.4);
+            
+        }
+
+        .badge-dev {
+            background: rgba(6, 182, 212, 0.3); /* Cyan */
+            color: #a5f3fc;
+            border: 1px solid rgba(6, 182, 212, 0.4);
+            
+        }
+
+        .badge-spouse {
+            background: rgba(236, 72, 153, 0.3);
+            color: #fbcfe8;
+            border: 1px solid rgba(236, 72, 153, 0.4);
+            display: flex;
+            align-items: center;
+        }
+        
+        .spouse-heart {
+            margin-right: 4px;
+            font-size: 12px;
+        }
+
+        /* Decoration circles */
+        .deco-circle {
+            position: absolute;
+            border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.05);
+            z-index: 1;
+        }
+        .c1 { width: 400px; height: 400px; top: -100px; right: -100px; }
+        .c2 { width: 300px; height: 300px; bottom: 50px; left: -80px; }
+
+        /* Snowflake Overlay */
+        .snow-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cg fill='%23ffcccc'%3E%3Cpath d='M12 0L10 4H14L12 0ZM12 24L10 20H14L12 24Z'/%3E%3Cpath d='M0 12L4 10V14L0 12ZM24 12L20 10V14L24 12Z'/%3E%3Cpath d='M3.5 3.5L6.5 6.5L6.5 3.5L3.5 3.5Z'/%3E%3Cpath d='M20.5 3.5L17.5 6.5L20.5 6.5L20.5 3.5Z'/%3E%3Cpath d='M3.5 20.5L6.5 17.5L3.5 17.5L3.5 20.5Z'/%3E%3Cpath d='M20.5 20.5L17.5 17.5L20.5 17.5L20.5 20.5Z'/%3E%3C/g%3E%3C/svg%3E&quot;);
+            opacity: 0.6;
+            z-index: 5; /* Above background, below content if content is higher */
+            pointer-events: none;
+            animation: snow 20s linear infinite;
+        }
+        @keyframes snow {
+            from { background-position: 0 0; }
+            to { background-position: 48px 48px; }
+        }
+
+
+        .bio-section {
+            font-size: 15px;
+            color: #3f3f3f;
+            margin-bottom: 25px;
+            margin-bottom: 15px;
+            
+            text-align: left;
+            font-style: italic;
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            padding: 10px 15px;
+            border-radius: 8px;
+            border-left: 3px solid #80ff00;
+            line-height: 1.4;
+            
+            font-family: 'Press Start 2P', cursive;
+            font-size: 10px;
+            color: #ddd;
+            background: rgba(0,0,0,0.3);
+            border: none;
+            border-left: 2px solid #fff;
+            text-shadow: 1px 1px 0 #000;
+            font-style: normal;
+            
+
+        }
+
+    </style>
+</head>
+<body>
+    <div class=&quot;card&quot;>
+        <div class=&quot;background-blur&quot;></div>
+        <div class=&quot;deco-circle c1&quot;></div>
+        <div class=&quot;deco-circle c2&quot;></div>
+        
+        <div class=&quot;content-layer&quot;>
+            
+            <div class=&quot;header&quot;>
+                <div class=&quot;avatar-container&quot;>
+                    <img src=&quot;https://telegra.ph/file/24fa902ead26340f3df2c.png&quot; class=&quot;avatar&quot; onerror=&quot;this.src='https://telegra.ph/file/24fa902ead26340f3df2c.png'&quot;>
+                </div>
+                <div class=&quot;names-col&quot;>
+                    <div class=&quot;username&quot;>Julia Bot</div>
+                    <div class=&quot;nickname&quot;>@julia</div>
+                    
+                <div class=&quot;badges-row&quot;>
+                        <div class=&quot;badge badge-dev&quot;>DEV</div>
+                        <div class=&quot;badge badge-admin&quot;>ADMIN</div>
+                        <div class=&quot;badge badge-spouse&quot;>
+                            <span class=&quot;spouse-heart&quot;>❤️</span> Administrador
+                        </div>
+                                <div class=&quot;badge&quot; style=&quot;background: #00ccffCC; border: 1px solid #00ccff;&quot;>DEV</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class=&quot;bio-section&quot;>
+                &quot;Sou um bot muito legal criando previews!&quot;
+            </div>
+
+            <div class=&quot;stats-grid&quot;>
+                <div class=&quot;stat-box&quot;>
+                    <span class=&quot;stat-label&quot;>Ranking</span>
+                    <span class=&quot;stat-value rank-value&quot;>#1</span>
+                </div>
+                <div class=&quot;stat-box&quot;>
+                    <span class=&quot;stat-label&quot;>Mensagens</span>
+                    <span class=&quot;stat-value&quot;>1337</span>
+                </div>
+                <div class=&quot;stat-box&quot;>
+                    <span class=&quot;stat-label&quot;>Rep</span>
+                    <span class=&quot;stat-value&quot; style=&quot;color: #55ffff;&quot;>42</span>
+                </div>
+                <div class=&quot;stat-box&quot;>
+                        <span class=&quot;stat-label&quot;>Aniversário</span>
+                        <span class=&quot;stat-value&quot; style=&quot;font-size: 10px;&quot;>20/01 ♒ Aquário</span>
+                </div>
+            </div>
+
+            <div class=&quot;music-section&quot;>
+                <img src=&quot;https://i.scdn.co/image/ab67616d0000b2733d98a0da7c77f09680208363&quot; class=&quot;music-art&quot; crossorigin=&quot;anonymous&quot; onerror=&quot;this.style.display='none'&quot;>
+                <div class=&quot;music-info&quot;>
+                    <div class=&quot;music-status&quot;>
+                            <svg viewBox=&quot;0 0 24 24&quot;><path d=&quot;M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z&quot;/></svg> 
+                            Ouvindo Agora
+                    </div>
+                    <div class=&quot;track-name&quot;>Super Shy</div>
+                    <div class=&quot;artist-name&quot;>NewJeans</div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</body>
+</html>
+"
+                style="width: 620px; height: 620px; border: none; background: transparent;"
+                sandbox="allow-scripts"
+            ></iframe>
+        </div>
+    
+        <div style="margin: 20px; text-align: center; display: inline-block;">
+            <h2 style="color: #fff; font-family: sans-serif;">LCD Theme</h2>
+            <iframe 
+                srcdoc="
+<!DOCTYPE html>
+<html lang=&quot;pt-BR&quot;>
+<head>
+    <meta charset=&quot;UTF-8&quot;>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Press+Start+2P&display=swap');
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            width: 600px;
+            height: 600px;
+            font-family: 'Press Start 2P', cursive;
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .card {
+            width: 600px;
+            height: 600px;
+            background: #c0c0c0;
+            
+            /* LCD / GameBoy Theme Support */
+            background-color: #c0c0c0;
+            border-radius: 0; /* Squared corners */
+            box-shadow: inset -5px -5px 10px rgba(0,0,0,0.2), 5px 5px 15px rgba(0,0,0,0.5);
+            padding: 0; /* Remove padding to lift screen */
+
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            color: #0f380f;
+            
+            /* Minecraft Support */
+        }
+
+        /* Ambient Glow/Background similar to NP card */
+
+        .background-blur {
+            position: absolute;
+            top: -50px;
+            left: -50px;
+            width: 120%;
+            height: 120%;
+            background-image: url('https://telegra.ph/file/24fa902ead26340f3df2c.png');
+            background-size: cover;
+            background-position: center;
+            filter: blur(50px) brightness(0.3) saturate(1.2);
+            z-index: 0;
+            opacity: 0.8;
+            
+            /* Hide blur for LCD */
+            display: none;
+            
+            /* Minecraft: Dirt Texture */
+            
+            /* iOS 6 Skeuomorphic Leather Texture */
+
+            /* Snow Background */
+
+            /* Custom Background */
+
+        }
+
+        
+        /* Minecraft Background Override - Removed as we used .background-blur */
+
+        .content-layer {
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            padding: 40px;
+            background: rgba(0,0,0,0.0);
+            
+            /* LCD / GameBoy Screen */
+            margin: 20px 40px 140px 40px; /* Reduced chin from 180px to 140px to prevent overflow */
+            flex: 1;
+            background: #8bac0f; /* Green Screen */
+            border: 30px solid #555; /* Grey Bezel */
+            border-radius: 15px 15px 50px 15px;
+            box-shadow: inset 3px 3px 10px rgba(0,0,0,0.4);
+            padding: 15px; /* Compact padding */
+            position: relative;
+            
+            /* Scanlines */
+            background-image: linear-gradient(transparent 50%, rgba(0,0,0,0.05) 50%);
+            background-size: 100% 4px;
+            
+            
+        }
+        
+        /* Battery LED for GameBoy */
+        .content-layer::after {
+            content: 'BATTERY';
+            position: absolute;
+            top: -20px; /* On the bezel */
+            left: 10px;
+            color: #888;
+            font-size: 8px;
+            font-family: Arial, sans-serif;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+        }
+        .content-layer::before {
+            content: '';
+            position: absolute;
+            top: -22px;
+            left: -15px; /* Adjust based on text */
+            width: 8px;
+            height: 8px;
+            background: #f00; /* Red LED */
+            border-radius: 50%;
+            box-shadow: 0 0 5px #f00;
+            transform: translateX(5px);
+            /* Actually putting the dot before text */
+            margin-right: 5px;
+        }
+        /* Adjusting pseudo elements is tricky with text content. 
+           Let's use specific positioning.
+        */
+        .content-layer::before {
+            left: 5px;
+            top: -20px;
+        }
+        .content-layer::after {
+            left: 20px;
+            top: -22px;
+        }
+
+        /* Header: Avatar + Names */
+        .header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 30px;
+            
+            margin-bottom: 10px;
+            
+        }
+
+        .avatar-container {
+            width: 130px;
+            height: 130px;
+            margin-right: 25px;
+            position: relative;
+            width: 100px; 
+            height: 100px;
+            margin-right: 15px;
+        }
+
+        .avatar {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 4px solid #0f380f;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+            
+            border-radius: 0;
+            border: 4px solid #0f380f;
+            box-shadow: none;
+            image-rendering: pixelated;
+            
+            
+        }
+
+        .names-col {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .username {
+            font-size: 36px;
+            font-weight: 800;
+            line-height: 1.1;
+            color: #0f380f;
+            text-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            margin-bottom: 4px;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            width: 100%;
+            
+            
+            
+            margin-bottom: 2px;
+            line-height: 1;
+        }
+
+        .nickname {
+            font-size: 18px;
+            color: #306230;
+            font-weight: 500;
+            font-family: &#x27;Press Start 2P&#x27;, cursive, sans-serif;
+            
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 30px;
+            
+            margin-bottom: 10px; gap: 8px;
+        }
+
+        .stat-box {
+            background: transparent;
+            border: 1px solid #0f380f;
+            border-radius: 16px;
+            padding: 15px 20px;
+            display: flex;
+            flex-direction: column;
+            border: none; padding: 10px 15px; 
+            /* If not LCD, add backdrop */
+            
+            
+            
+        }
+        
+        /* Screws for Skeuo Stats */
+
+        .stat-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #306230;
+            margin-bottom: 6px;
+            font-family: &#x27;Press Start 2P&#x27;, cursive, sans-serif;
+            
+            
+            margin-bottom: 2px;
+        }
+
+        .stat-value {
+            font-size: 22px;
+            font-weight: 700;
+            color: #0f380f;
+            
+        }
+        
+        .rank-value {
+             color: #FCD34D;
+             
+             
+        }
+
+        /* Music / Activity Section */
+        .music-section {
+            margin-top: auto; /* Push to bottom */
+             /* Reduced gap for Minecraft */
+            margin-top: 5px;
+            background: transparent;
+            border-radius: 20px;
+            padding: 20px;
+            padding: 10px;
+            display: flex;
+            align-items: center;
+            border: 1px solid #0f380f;
+            
+            
+            border: 2px solid #0f380f;
+            border-radius: 4px;
+            
+            
+        }
+
+        .music-art {
+            width: 70px;
+            height: 70px;
+            border-radius: 8px;
+            object-fit: cover;
+            background: #333;
+            margin-right: 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            flex-shrink: 0;
+            
+            border-radius: 0;
+            box-shadow: none;
+            border: 2px solid #0f380f;
+            image-rendering: pixelated;
+            
+            
+        }
+
+        .music-info {
+            flex: 1;
+            overflow: hidden;
+        }
+        
+        .music-status {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #1DB954; /* Spotify Green (Brighter for MC) */
+            font-weight: 700;
+            margin-bottom: 4px;
+            display:  flex;
+            align-items: center;
+            
+        }
+        
+        .music-status svg {
+            width: 12px;
+            height: 12px;
+            margin-right: 4px;
+            fill: #1DB954;
+        }
+
+        .track-name {
+            font-size: 16px;
+            font-weight: 700;
+            color: #0f380f;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 2px;
+            
+            
+        }
+
+        .artist-name {
+            font-size: 14px;
+            color: #306230;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            
+            
+        }
+
+        /* Badges row inline */
+        .badges-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            background: rgba(255,255,255,0.15);
+            color: #fff;
+            backdrop-filter: blur(5px);
+            white-space: nowrap;
+        }
+        
+        .badge-admin {
+            background: rgba(139, 92, 246, 0.3);
+            color: #ddd6fe;
+            border: 1px solid rgba(139, 92, 246, 0.4);
+            
+        }
+
+        .badge-dev {
+            background: rgba(6, 182, 212, 0.3); /* Cyan */
+            color: #a5f3fc;
+            border: 1px solid rgba(6, 182, 212, 0.4);
+            
+        }
+
+        .badge-spouse {
+            background: rgba(236, 72, 153, 0.3);
+            color: #fbcfe8;
+            border: 1px solid rgba(236, 72, 153, 0.4);
+            display: flex;
+            align-items: center;
+        }
+        
+        .spouse-heart {
+            margin-right: 4px;
+            font-size: 12px;
+        }
+
+        /* Decoration circles */
+        .deco-circle {
+            position: absolute;
+            border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.05);
+            z-index: 1;
+        }
+        .c1 { width: 400px; height: 400px; top: -100px; right: -100px; }
+        .c2 { width: 300px; height: 300px; bottom: 50px; left: -80px; }
+
+        /* Snowflake Overlay */
+        .snow-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cg fill='%23ffcccc'%3E%3Cpath d='M12 0L10 4H14L12 0ZM12 24L10 20H14L12 24Z'/%3E%3Cpath d='M0 12L4 10V14L0 12ZM24 12L20 10V14L24 12Z'/%3E%3Cpath d='M3.5 3.5L6.5 6.5L6.5 3.5L3.5 3.5Z'/%3E%3Cpath d='M20.5 3.5L17.5 6.5L20.5 6.5L20.5 3.5Z'/%3E%3Cpath d='M3.5 20.5L6.5 17.5L3.5 17.5L3.5 20.5Z'/%3E%3Cpath d='M20.5 20.5L17.5 17.5L20.5 17.5L20.5 20.5Z'/%3E%3C/g%3E%3C/svg%3E&quot;);
+            opacity: 0.6;
+            z-index: 5; /* Above background, below content if content is higher */
+            pointer-events: none;
+            animation: snow 20s linear infinite;
+        }
+        @keyframes snow {
+            from { background-position: 0 0; }
+            to { background-position: 48px 48px; }
+        }
+
+
+        .bio-section {
+            font-size: 15px;
+            color: #306230;
+            margin-bottom: 25px;
+            
+            margin-bottom: 10px; font-size: 10px;
+            text-align: left;
+            font-style: italic;
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            padding: 10px 15px;
+            border-radius: 8px;
+            border-left: 3px solid #306230;
+            line-height: 1.4;
+            
+            
+
+        }
+
+    </style>
+</head>
+<body>
+    <div class=&quot;card&quot;>
+        <div class=&quot;background-blur&quot;></div>
+        <div class=&quot;deco-circle c1&quot;></div>
+        <div class=&quot;deco-circle c2&quot;></div>
+        
+        <div class=&quot;content-layer&quot;>
+            
+            <div class=&quot;header&quot;>
+                <div class=&quot;avatar-container&quot;>
+                    <img src=&quot;https://telegra.ph/file/24fa902ead26340f3df2c.png&quot; class=&quot;avatar&quot; onerror=&quot;this.src='https://telegra.ph/file/24fa902ead26340f3df2c.png'&quot;>
+                </div>
+                <div class=&quot;names-col&quot;>
+                    <div class=&quot;username&quot;>Julia Bot</div>
+                    <div class=&quot;nickname&quot;>@julia</div>
+                    
+                <div class=&quot;badges-row&quot;>
+                        <div class=&quot;badge badge-dev&quot;>DEV</div>
+                        <div class=&quot;badge badge-admin&quot;>ADMIN</div>
+                        <div class=&quot;badge badge-spouse&quot;>
+                            <span class=&quot;spouse-heart&quot;>❤️</span> Administrador
+                        </div>
+                                <div class=&quot;badge&quot; style=&quot;background: #00ccffCC; border: 1px solid #00ccff;&quot;>DEV</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class=&quot;bio-section&quot;>
+                &quot;Sou um bot muito legal criando previews!&quot;
+            </div>
+
+            <div class=&quot;stats-grid&quot;>
+                <div class=&quot;stat-box&quot;>
+                    <span class=&quot;stat-label&quot;>Ranking</span>
+                    <span class=&quot;stat-value rank-value&quot;>#1</span>
+                </div>
+                <div class=&quot;stat-box&quot;>
+                    <span class=&quot;stat-label&quot;>Mensagens</span>
+                    <span class=&quot;stat-value&quot;>1337</span>
+                </div>
+                <div class=&quot;stat-box&quot;>
+                    <span class=&quot;stat-label&quot;>Rep</span>
+                    <span class=&quot;stat-value&quot; style=&quot;color: #60A5FA;&quot;>42</span>
+                </div>
+                <div class=&quot;stat-box&quot;>
+                        <span class=&quot;stat-label&quot;>Aniversário</span>
+                        <span class=&quot;stat-value&quot; style=&quot;font-size: 12px;&quot;>20/01 ♒ Aquário</span>
+                </div>
+            </div>
+
+            <div class=&quot;music-section&quot;>
+                <img src=&quot;https://i.scdn.co/image/ab67616d0000b2733d98a0da7c77f09680208363&quot; class=&quot;music-art&quot; crossorigin=&quot;anonymous&quot; onerror=&quot;this.style.display='none'&quot;>
+                <div class=&quot;music-info&quot;>
+                    <div class=&quot;music-status&quot;>
+                            <svg viewBox=&quot;0 0 24 24&quot;><path d=&quot;M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z&quot;/></svg> 
+                            Ouvindo Agora
+                    </div>
+                    <div class=&quot;track-name&quot;>Super Shy</div>
+                    <div class=&quot;artist-name&quot;>NewJeans</div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</body>
+</html>
+"
+                style="width: 620px; height: 620px; border: none; background: transparent;"
+                sandbox="allow-scripts"
+            ></iframe>
+        </div>
+    
+        <div style="margin: 20px; text-align: center; display: inline-block;">
+            <h2 style="color: #fff; font-family: sans-serif;">Skeuomorphic</h2>
+            <iframe 
+                srcdoc="
+<!DOCTYPE html>
+<html lang=&quot;pt-BR&quot;>
+<head>
+    <meta charset=&quot;UTF-8&quot;>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Press+Start+2P&display=swap');
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            width: 600px;
+            height: 600px;
+            font-family: 'Inter', sans-serif;
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .card {
+            width: 600px;
+            height: 600px;
+            background: #2b2b2b;
+            
+            /* LCD / GameBoy Theme Support */
+
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            color: #fff;
+            
+            /* Minecraft Support */
+        }
+
+        /* Ambient Glow/Background similar to NP card */
+
+        .background-blur {
+            position: absolute;
+            top: -50px;
+            left: -50px;
+            width: 120%;
+            height: 120%;
+            background-image: url('https://telegra.ph/file/24fa902ead26340f3df2c.png');
+            background-size: cover;
+            background-position: center;
+            filter: blur(50px) brightness(0.3) saturate(1.2);
+            z-index: 0;
+            opacity: 0.8;
+            
+            /* Hide blur for LCD */
+            
+            
+            /* Minecraft: Dirt Texture */
+            
+            /* iOS 6 Skeuomorphic Leather Texture */
+            opacity: 1;
+            filter: none;
+            background-color: #4b4036;
+            background-image: url('');
+            background-size: 100% 100%;
+            background-position: center;
+            box-shadow: inset 0 0 100px rgba(0,0,0,0.7);
+            /* Reset geometry to show full image */
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+
+            /* Snow Background */
+
+            /* Custom Background */
+
+        }
+
+        
+        /* Minecraft Background Override - Removed as we used .background-blur */
+
+        .content-layer {
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            padding: 40px;
+            background: rgba(0,0,0,0.0);
+            
+            /* LCD / GameBoy Screen */
+            
+            
+            padding: 30px; /* Reduced from 50px */
+        }
+        
+        /* Battery LED for GameBoy */
+
+        /* Header: Avatar + Names */
+        .header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 30px;
+            
+            
+            
+            background: linear-gradient(to bottom, #f2f2f2 0%, #bebebe 100%);
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.8);
+            border: 1px solid #999;
+        }
+
+        .avatar-container {
+            width: 130px;
+            height: 130px;
+            margin-right: 25px;
+            position: relative;
+        }
+
+        .avatar {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 4px solid #000;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+            
+            
+            
+            border: 4px solid #c0c0c0;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.4), inset 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .names-col {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .username {
+            font-size: 36px;
+            font-weight: 800;
+            line-height: 1.1;
+            color: #fff;
+            text-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            margin-bottom: 4px;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            width: 100%;
+            
+            
+            color: #333; /* Dark text for light metal bg */
+            text-shadow: 0 1px 0 rgba(255,255,255,0.8); /* Embossed look */
+            padding-bottom: 5px; /* Prevent shadow clipping */
+            
+        }
+
+        .nickname {
+            font-size: 18px;
+            color: #ccc;
+            font-weight: 500;
+            font-family: &#x27;Inter&#x27;, sans-serif, sans-serif;
+            
+            color: #555;
+            text-shadow: 0 1px 0 rgba(255,255,255,0.8);
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 30px;
+            
+            
+        }
+
+        .stat-box {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid #000;
+            border-radius: 16px;
+            padding: 15px 20px;
+            display: flex;
+            flex-direction: column;
+             
+            /* If not LCD, add backdrop */
+            backdrop-filter: blur(10px);
+            
+            
+            background: linear-gradient(to bottom, #e6e6e6, #bfbfbf);
+            border-radius: 6px;
+            border: 1px solid #999;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.8);
+            /* Pseudo-screws */
+            position: relative;
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        /* Screws for Skeuo Stats */
+        .stat-box::after {
+            content: '⊕';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            font-size: 8px;
+            color: #888;
+            text-shadow: 0 1px 0 rgba(255,255,255,0.8);
+        }
+        .stat-box::before {
+            content: '⊕';
+            position: absolute;
+            bottom: 2px;
+            right: 2px;
+            font-size: 8px;
+            color: #888;
+            text-shadow: 0 1px 0 rgba(255,255,255,0.8);
+        }
+
+        .stat-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #ccc;
+            margin-bottom: 6px;
+            font-family: &#x27;Inter&#x27;, sans-serif, sans-serif;
+            
+            margin-bottom: 0;
+            color: #555;
+            text-shadow: 0 1px 0 #fff;
+            font-weight: 700;
+            font-size: 10px;
+            
+        }
+
+        .stat-value {
+            font-size: 22px;
+            font-weight: 700;
+            color: #fff;
+            
+            /* Black Glass Box */
+            background: #000;
+            background-image: linear-gradient(to bottom, #222 0%, #111 50%, #000 50%, #000 100%);
+            color: #fff;
+            padding: 5px 10px;
+            border-radius: 4px;
+            border: 1px solid #444;
+            box-shadow: 0 1px 0 rgba(255,255,255,0.2), inset 0 2px 5px rgba(0,0,0,0.8);
+            font-family: Helvetica, Arial, sans-serif; /* Cleaner */
+            text-shadow: 0 0 5px rgba(255,255,255,0.5);
+            font-size: 14px; /* Reduced from 18px */
+            min-width: 60px;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .rank-value {
+             color: #FCD34D;
+             
+             color: #FCD34D;
+        }
+
+        /* Music / Activity Section */
+        .music-section {
+            margin-top: auto; /* Push to bottom */
+             /* Reduced gap for Minecraft */
+            
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 20px;
+            padding: 20px;
+            
+            display: flex;
+            align-items: center;
+            border: 1px solid #000;
+            backdrop-filter: blur(10px);
+            
+            
+            
+            background: linear-gradient(to bottom, #d9d9d9, #b3b3b3);
+            border-radius: 8px;
+            border: 1px solid #777;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.8);
+        }
+
+        .music-art {
+            width: 70px;
+            height: 70px;
+            border-radius: 8px;
+            object-fit: cover;
+            background: #333;
+            margin-right: 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            flex-shrink: 0;
+            
+            
+            
+            border-radius: 2px;
+            border: 1px solid #333;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.6);
+        }
+
+        .music-info {
+            flex: 1;
+            overflow: hidden;
+        }
+        
+        .music-status {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #1DB954; /* Spotify Green (Brighter for MC) */
+            font-weight: 700;
+            margin-bottom: 4px;
+            display:  flex;
+            align-items: center;
+            
+        }
+        
+        .music-status svg {
+            width: 12px;
+            height: 12px;
+            margin-right: 4px;
+            fill: #1DB954;
+        }
+
+        .track-name {
+            font-size: 16px;
+            font-weight: 700;
+            color: #fff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 2px;
+            
+            
+            /* Green Glossy Button for Track */
+            background: linear-gradient(to bottom, #86d67e, #4caf50);
+            border: 1px solid #26801c;
+            border-radius: 4px;
+            padding: 4px 12px;
+            color: #fff;
+            text-shadow: 0 -1px 0 rgba(0,0,0,0.3);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 1px 2px rgba(0,0,0,0.2);
+            font-size: 14px;
+            display: inline-block;
+            margin-bottom: 4px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .artist-name {
+            font-size: 14px;
+            color: #ccc;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            
+            
+            /* Green Glossy Button for Artist */
+            background: linear-gradient(to bottom, #86d67e, #4caf50);
+            border: 1px solid #26801c;
+            border-radius: 4px;
+            padding: 2px 12px;
+            color: #fff;
+            text-shadow: 0 -1px 0 rgba(0,0,0,0.3);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 1px 2px rgba(0,0,0,0.2);
+            font-size: 12px;
+            display: inline-block;
+            width: 100%;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        /* Badges row inline */
+        .badges-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            background: rgba(255,255,255,0.15);
+            color: #fff;
+            backdrop-filter: blur(5px);
+            white-space: nowrap;
+        }
+        
+        .badge-admin {
+            background: rgba(139, 92, 246, 0.3);
+            color: #ddd6fe;
+            border: 1px solid rgba(139, 92, 246, 0.4);
+            
+            /* Admin pill style */
+            background: linear-gradient(to bottom, #a0a0a0, #707070);
+            color: #fff;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 10px;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 1px 2px rgba(0,0,0,0.3);
+            border: 1px solid #555;
+            text-shadow: 0 -1px 0 rgba(0,0,0,0.3);
+        }
+
+        .badge-dev {
+            background: rgba(6, 182, 212, 0.3); /* Cyan */
+            color: #a5f3fc;
+            border: 1px solid rgba(6, 182, 212, 0.4);
+            
+            background: linear-gradient(to bottom, #00bfff, #009acd);
+            color: #fff;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 10px;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 1px 2px rgba(0,0,0,0.3);
+            border: 1px solid #00688b;
+            text-shadow: 0 -1px 0 rgba(0,0,0,0.3);
+        }
+
+        .badge-spouse {
+            background: rgba(236, 72, 153, 0.3);
+            color: #fbcfe8;
+            border: 1px solid rgba(236, 72, 153, 0.4);
+            display: flex;
+            align-items: center;
+        }
+        
+        .spouse-heart {
+            margin-right: 4px;
+            font-size: 12px;
+        }
+
+        /* Decoration circles */
+        .deco-circle {
+            position: absolute;
+            border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.05);
+            z-index: 1;
+        }
+        .c1 { width: 400px; height: 400px; top: -100px; right: -100px; }
+        .c2 { width: 300px; height: 300px; bottom: 50px; left: -80px; }
+
+        /* Snowflake Overlay */
+        .snow-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cg fill='%23ffcccc'%3E%3Cpath d='M12 0L10 4H14L12 0ZM12 24L10 20H14L12 24Z'/%3E%3Cpath d='M0 12L4 10V14L0 12ZM24 12L20 10V14L24 12Z'/%3E%3Cpath d='M3.5 3.5L6.5 6.5L6.5 3.5L3.5 3.5Z'/%3E%3Cpath d='M20.5 3.5L17.5 6.5L20.5 6.5L20.5 3.5Z'/%3E%3Cpath d='M3.5 20.5L6.5 17.5L3.5 17.5L3.5 20.5Z'/%3E%3Cpath d='M20.5 20.5L17.5 17.5L20.5 17.5L20.5 20.5Z'/%3E%3C/g%3E%3C/svg%3E&quot;);
+            opacity: 0.6;
+            z-index: 5; /* Above background, below content if content is higher */
+            pointer-events: none;
+            animation: snow 20s linear infinite;
+        }
+        @keyframes snow {
+            from { background-position: 0 0; }
+            to { background-position: 48px 48px; }
+        }
+
+
+        .bio-section {
+            font-size: 15px;
+            color: #ccc;
+            margin-bottom: 25px;
+            
+            
+            text-align: left;
+            font-style: italic;
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            padding: 10px 15px;
+            border-radius: 8px;
+            border-left: 3px solid linear-gradient(180deg, #51a7f9 0%, #007bf7 100%);
+            line-height: 1.4;
+            
+            
+            background: #fdfdfd; 
+            border: 1px solid #aaa;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
+            color: #333;
+            font-style: normal;
+            font-family: &quot;Courier New&quot;, Courier, monospace;
+            border-left: none;
+            background-image: linear-gradient(#fdfdfd 0%, #f0f0f0 100%);
+
+        }
+
+    </style>
+</head>
+<body>
+    <div class=&quot;card&quot;>
+        <div class=&quot;background-blur&quot;></div>
+        <div class=&quot;deco-circle c1&quot;></div>
+        <div class=&quot;deco-circle c2&quot;></div>
+        
+        <div class=&quot;content-layer&quot;>
+            
+            <div class=&quot;header&quot;>
+                <div class=&quot;avatar-container&quot;>
+                    <img src=&quot;https://telegra.ph/file/24fa902ead26340f3df2c.png&quot; class=&quot;avatar&quot; onerror=&quot;this.src='https://telegra.ph/file/24fa902ead26340f3df2c.png'&quot;>
+                </div>
+                <div class=&quot;names-col&quot;>
+                    <div class=&quot;username&quot;>Julia Bot</div>
+                    <div class=&quot;nickname&quot;>@julia</div>
+                    
+                <div class=&quot;badges-row&quot;>
+                        <div class=&quot;badge badge-dev&quot;>DEV</div>
+                        <div class=&quot;badge badge-admin&quot;>ADMIN</div>
+                        <div class=&quot;badge badge-spouse&quot;>
+                            <span class=&quot;spouse-heart&quot;>❤️</span> Administrador
+                        </div>
+                                <div class=&quot;badge&quot; style=&quot;background: #00ccffCC; border: 1px solid #00ccff;&quot;>DEV</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class=&quot;bio-section&quot;>
+                &quot;Sou um bot muito legal criando previews!&quot;
+            </div>
+
+            <div class=&quot;stats-grid&quot;>
+                <div class=&quot;stat-box&quot;>
+                    <span class=&quot;stat-label&quot;>Ranking</span>
+                    <span class=&quot;stat-value rank-value&quot;>#1</span>
+                </div>
+                <div class=&quot;stat-box&quot;>
+                    <span class=&quot;stat-label&quot;>Mensagens</span>
+                    <span class=&quot;stat-value&quot;>1337</span>
+                </div>
+                <div class=&quot;stat-box&quot;>
+                    <span class=&quot;stat-label&quot;>Rep</span>
+                    <span class=&quot;stat-value&quot; style=&quot;color: #60A5FA;&quot;>42</span>
+                </div>
+                <div class=&quot;stat-box&quot;>
+                        <span class=&quot;stat-label&quot;>Aniversário</span>
+                        <span class=&quot;stat-value&quot; style=&quot;font-size: 18px;&quot;>20/01 ♒ Aquário</span>
+                </div>
+            </div>
+
+            <div class=&quot;music-section&quot;>
+                <img src=&quot;https://i.scdn.co/image/ab67616d0000b2733d98a0da7c77f09680208363&quot; class=&quot;music-art&quot; crossorigin=&quot;anonymous&quot; onerror=&quot;this.style.display='none'&quot;>
+                <div class=&quot;music-info&quot;>
+                    <div class=&quot;music-status&quot;>
+                            <svg viewBox=&quot;0 0 24 24&quot;><path d=&quot;M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z&quot;/></svg> 
+                            Ouvindo Agora
+                    </div>
+                    <div class=&quot;track-name&quot;>Super Shy</div>
+                    <div class=&quot;artist-name&quot;>NewJeans</div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</body>
+</html>
+"
+                style="width: 620px; height: 620px; border: none; background: transparent;"
+                sandbox="allow-scripts"
+            ></iframe>
+        </div>
+    </body></html>

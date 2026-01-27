@@ -1,12 +1,12 @@
-// commands/modosticker.js
+
 const settingsManager = require('../managers/groupSettingsManager.js');
 
-// Função para verificar se o autor do comando é admin do grupo
+
 async function isAdmin(sock, chatJid, authorJid) {
     try {
         const groupMeta = await sock.groupMetadata(chatJid);
         const participant = groupMeta.participants.find(p => p.id === authorJid);
-        return !!participant?.admin; // Retorna true se for 'admin' ou 'superadmin'
+        return !!participant?.admin; 
     } catch (e) {
         console.error("[StickerMode Command] Erro ao verificar status de admin:", e);
         return false;
@@ -16,7 +16,7 @@ async function isAdmin(sock, chatJid, authorJid) {
 async function handleStickerModeCommand(sock, msg, msgDetails) {
     const { sender, commandSenderJid, isGroup } = msgDetails;
 
-    // Se estiver em um grupo, apenas admins podem usar o comando
+    
     if (isGroup) {
         const isAuthorAdmin = await isAdmin(sock, sender, commandSenderJid);
         if (!isAuthorAdmin) {
@@ -46,3 +46,12 @@ async function handleStickerModeCommand(sock, msg, msgDetails) {
 }
 
 module.exports = handleStickerModeCommand;
+
+
+module.exports.commandData = {
+    name: "modosticker",
+    description: "Auto-sticker.",
+    category: "admin",
+    usage: "/modosticker",
+    aliases: ["/autosticker","/autofig"]
+};

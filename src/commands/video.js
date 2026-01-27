@@ -1,10 +1,8 @@
-// commands/video.js
 const path = require('path');
 const fsp = require('fs').promises;
 const { exec } = require('child_process');
 const crypto = require('crypto');
 
-// Função para extrair a primeira URL de um texto
 function extractUrl(text) {
     const urlRegex = /(https?:\/\/[^\s]+)/;
     const urlMatch = text.match(urlRegex);
@@ -24,7 +22,7 @@ async function handleVideoCommand(sock, msg, msgDetails) {
 
     const tempDir = path.join(__dirname, '..', 'temp');
     await fsp.mkdir(tempDir, { recursive: true });
-    
+
     const randomId = crypto.randomBytes(8).toString('hex');
     const cookiesFilePath = path.join(__dirname, '..', 'cookies.txt');
     let cookiesArgument = '';
@@ -36,7 +34,7 @@ async function handleVideoCommand(sock, msg, msgDetails) {
     }
 
     const outputPath = path.join(tempDir, `${randomId}.mp4`);
-    const ytdlpCommand = `yt-dlp ${cookiesArgument} -f 'bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/best[ext=mp4]/best' -o "${outputPath}" "${url}"`;
+    const ytdlpCommand = `python3.11 -m yt_dlp ${cookiesArgument} -f 'bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/best[ext=mp4]/best' -o "${outputPath}" "${url}"`;
 
     try {
         await sock.sendMessage(sender, { text: "🎥 Baixando vídeo, isso pode levar um momento..." }, { quoted: msg });
@@ -55,7 +53,7 @@ async function handleVideoCommand(sock, msg, msgDetails) {
 
         console.log(`[Video] Mídia baixada com sucesso em: ${outputPath}`);
         await fsp.access(outputPath);
-        
+
         const stats = await fsp.stat(outputPath);
         if (stats.size > 64 * 1024 * 1024) {
             await sock.sendMessage(sender, { text: "O vídeo foi baixado, mas é muito grande para ser enviado no WhatsApp (> 64MB). 😢" });
@@ -68,7 +66,7 @@ async function handleVideoCommand(sock, msg, msgDetails) {
         console.error("[Video] Erro no processo de download:", error);
         await sock.sendMessage(sender, { text: `😕 Falha no download.\n\n_Motivo: ${error.message}_` }, { quoted: msg });
     } finally {
-        await fsp.unlink(outputPath).catch(() => {});
+        await fsp.unlink(outputPath).catch(() => { });
     }
 
     return true;

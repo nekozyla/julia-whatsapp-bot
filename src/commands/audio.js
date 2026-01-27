@@ -1,10 +1,8 @@
-// commands/audio.js
 const path = require('path');
 const fsp = require('fs').promises;
 const { exec } = require('child_process');
 const crypto = require('crypto');
 
-// Função para extrair a primeira URL de um texto
 function extractUrl(text) {
     const urlRegex = /(https?:\/\/[^\s]+)/;
     const urlMatch = text.match(urlRegex);
@@ -20,11 +18,11 @@ async function handleAudioCommand(sock, msg, msgDetails) {
         return true;
     }
 
-    console.log(`[Audio] ${pushName} solicitou o download do áudio de: ${url}`);
+    console.log(`[Audio] ${pushName} solicitou do áudio de: ${url}`);
 
     const tempDir = path.join(__dirname, '..', 'temp');
     await fsp.mkdir(tempDir, { recursive: true });
-    
+
     const randomId = crypto.randomBytes(8).toString('hex');
     const cookiesFilePath = path.join(__dirname, '..', 'cookies.txt');
     let cookiesArgument = '';
@@ -36,7 +34,7 @@ async function handleAudioCommand(sock, msg, msgDetails) {
     }
 
     const outputPath = path.join(tempDir, `${randomId}.mp3`);
-    const ytdlpCommand = `yt-dlp ${cookiesArgument} -x --audio-format mp3 -o "${outputPath}" "${url}"`;
+    const ytdlpCommand = `python3.11 -m yt_dlp ${cookiesArgument} -x --audio-format mp3 -o "${outputPath}" "${url}"`;
 
     try {
         await sock.sendMessage(sender, { text: "🎵 Baixando áudio, por favor aguarde..." }, { quoted: msg });
@@ -59,14 +57,14 @@ async function handleAudioCommand(sock, msg, msgDetails) {
         console.log(`[Audio] Mídia baixada com sucesso em: ${outputPath}`);
         await fsp.access(outputPath);
         const fileBuffer = await fsp.readFile(outputPath);
-        
+
         await sock.sendMessage(sender, { audio: fileBuffer, mimetype: 'audio/mpeg' });
 
     } catch (error) {
         console.error("[Audio] Erro no processo de download:", error);
         await sock.sendMessage(sender, { text: `😕 Falha no download.\n\n_Motivo: ${error.message}_` }, { quoted: msg });
     } finally {
-        await fsp.unlink(outputPath).catch(() => {});
+        await fsp.unlink(outputPath).catch(() => { });
     }
 
     return true;
