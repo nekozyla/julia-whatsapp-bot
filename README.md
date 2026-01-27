@@ -75,7 +75,7 @@ PREFIX=/
 
 4. **Inicie o bot**
 ```bash
-node index.js
+node src/main.js
 ```
 
 5. **Escaneie o QR Code** que aparecerá no terminal com seu WhatsApp
