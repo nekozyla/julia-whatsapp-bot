@@ -94,3 +94,6 @@ ENV/
 
 # Antigravity brain artifacts (seus arquivos de trabalho temporários)
 .gemini/
+
+# Agent rules (arquivos de configuração do agente)
+.agent/rules/
