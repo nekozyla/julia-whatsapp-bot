@@ -113,7 +113,7 @@ node src/main.js
 | `/perfil` | `/eu`, `/profile` | Exibe seu perfil customizável |
 | `/nick` | - | Define apelido personalizado |
 | `/aura` | `/vibe`, `/pontos` | Mostra seus pontos de aura |
-| `/auracard` | `/cardaura`, `/pontoscard` | Mostra seus pontos de aura em um card premium |
+| `/card` | `/carta`, `/playercard` | Gera uma carta de batalha colecionável premium baseada no usuário |
 | `/rep` | `/reputacao`, `/moral` | Dá reputação para alguém |
 | `/rank` | `/atividade`, `/stats`, `/xp` | Ranking de atividade |
 | `/dna` | - | Teste de DNA entre dois membros |

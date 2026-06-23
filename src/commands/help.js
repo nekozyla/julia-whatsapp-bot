@@ -130,7 +130,8 @@ const descriptionTranslations = {
     'Rola um dado (ex: 2d6).': 'Rolls dice, for example 2d6.',
     'Gera imagem estilo capa MC com frase e assinatura.': 'Generates an MC-cover-style image with a phrase and signature.',
     'Mostra o que está ouvindo.': 'Shows what you are listening to.',
-    'Remove admin.': 'Removes admin.'
+    'Remove admin.': 'Removes admin.',
+    'Gera uma carta de batalha colecionável premium baseada no usuário.': 'Generates a premium collectible battle card based on the user.'
 };
 
 function translateDescription(description) {
