@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login YouTube Music - Nekozyla</title>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #121212;
+            color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background-color: #1e1e1e;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+        }
+
+        h1 {
+            color: #ff0000;
+            margin-bottom: 20px;
+        }
+
+        p {
+            color: #aaa;
+            margin-bottom: 30px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        textarea {
+            width: 100%;
+            height: 150px;
+            background-color: #333;
+            border: 1px solid #444;
+            color: #fff;
+            border-radius: 8px;
+            padding: 10px;
+            font-family: monospace;
+            resize: none;
+            margin-bottom: 20px;
+            box-sizing: border-box;
+        }
+
+        button {
+            width: 100%;
+            padding: 15px;
+            background-color: #ff0000;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background-color: #cc0000;
+        }
+
+        .instructions {
+            text-align: left;
+            background: #252525;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 13px;
+        }
+
+        .instructions ol {
+            padding-left: 20px;
+            margin: 0;
+        }
+
+        .instructions li {
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>YouTube Music Login</h1>
+
+        <div class="instructions">
+            <strong>Como obter o cookie (Método Automático):</strong>
+            <p>1. Arraste este botão para sua barra de favoritos do navegador:</p>
+            <div style="text-align: center; margin: 20px 0;">
+                <a href="javascript:(function(){var c=document.cookie;if(c.includes('__Secure-3PAPISID')||c.includes('__Secure-3PSID')){prompt('Copie seu cookie para o Nekozyla:',c);}else{alert('Você precisa estar logado no music.youtube.com!');}})();"
+                    style="display:inline-block;padding:12px 24px;background:#444;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold;border:2px dashed #777;cursor:move;"
+                    onclick="alert('Arraste este botão para a barra de favoritos do seu navegador!\n\nDepois vá para o site music.youtube.com e clique no favorito.')">
+                    🍪 Copiar Cookie YTM
+                </a>
+            </div>
+            <p>2. Acesse <a href="https://music.youtube.com" target="_blank"
+                    style="color: #ff4444;">music.youtube.com</a> e certifique-se de estar logado.</p>
+            <p>3. Clique no favorito "Copiar Cookie YTM" que você criou.</p>
+            <p>4. Uma caixa vai abrir com um texto. Copie TUDO e cole no campo abaixo.</p>
+
+            <hr style="border-color:#333;margin:20px 0;">
+
+            <details>
+                <summary style="cursor:pointer;color:#aaa;">Método Manual (Se o botão não funcionar)</summary>
+                <ol style="margin-top:10px;">
+                    <li>No <strong>music.youtube.com</strong>, abra o Console (F12) > Aba <strong>Network</strong>.</li>
+                    <li>Recarregue a página (F5) e clique em qualquer requisição (ex: <code>browse</code> ou
+                        <code>guide</code>).</li>
+                    <li>Na aba <strong>Headers</strong> > <strong>Request Headers</strong>, copie o valor de
+                        <code>Cookie:</code>.</li>
+                </ol>
+            </details>
+        </div>
+
+        <textarea id="cookieInput" placeholder="Cole o cookie aqui..."></textarea>
+        <button onclick="saveCookie()">Salvar Login</button>
+        <p id="status" style="margin-top: 20px;"></p>
+    </div>
+
+    <script>
+        function getUserId() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('id');
+        }
+
+        async function saveCookie() {
+            const userId = getUserId();
+            const cookie = document.getElementById('cookieInput').value;
+            const statusEl = document.getElementById('status');
+
+            if (!userId) {
+                statusEl.textContent = "Erro: ID de usuário inválido na URL.";
+                statusEl.style.color = "red";
+                return;
+            }
+
+            if (!cookie) {
+                statusEl.textContent = "Por favor, cole o cookie.";
+                statusEl.style.color = "orange";
+                return;
+            }
+
+            statusEl.textContent = "Salvando...";
+            statusEl.style.color = "#aaa";
+
+            try {
+                const response = await fetch('/api/yt-login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId, cookie })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    statusEl.textContent = "✅ Login salvo com sucesso! Você pode fechar esta página.";
+                    statusEl.style.color = "#4caf50";
+                    document.getElementById('cookieInput').value = '';
+                } else {
+                    statusEl.textContent = "Erro: " + data.message;
+                    statusEl.style.color = "red";
+                }
+            } catch (error) {
+                statusEl.textContent = "Erro de conexão.";
+                statusEl.style.color = "red";
+            }
+        }
+
+        window.onload = () => {
+            const userId = getUserId();
+            if (!userId) {
+                document.body.innerHTML = '<h2 style="color:white;text-align:center;">Link inválido. Use o comando /np login-yt no bot.</h2>';
+            }
+        }
+    </script>
+</body>
+
+</html>

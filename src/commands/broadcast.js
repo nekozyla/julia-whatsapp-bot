@@ -1,6 +1,6 @@
 
 const authManager = require('../managers/authManager.js');
-const { sendJuliaError } = require('../utils/utils.js');
+const { sendGiratinaError } = require('../utils/utils.js');
 const contactManager = require('../managers/contactManager.js');
 
 
@@ -79,7 +79,7 @@ async function handleBroadcastCommand(sock, msg, msgDetails) {
         await sock.sendMessage(sender, { text: reportText });
 
     } catch (error) {
-        await sendJuliaError(sock, sender, msg, error);
+        await sendGiratinaError(sock, sender, msg, error);
     }
 
     return true;
@@ -90,8 +90,7 @@ handleBroadcastCommand.commandData = {
     description: "Envia mensagem para todos (pv/grupos/todos).",
     category: "super",
     usage: "/broadcast <pv|grupos|todos> <mensagem>",
-    aliases: ["/bc", "/anuncio"]
+    aliases: ["/bc", "/anuncio", "/transmitir"]
 };
 
 module.exports = handleBroadcastCommand;
-

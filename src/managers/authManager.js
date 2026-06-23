@@ -1,7 +1,7 @@
 
 const fs = require('fs').promises; 
 const path = require('path');
-const config = require('../../config/config.js');
+const config = require('../../config.js');
 const tempAdminManager = require('./tempAdminManager.js');
 
 const ALLOWED_GROUPS_FILE = path.join(__dirname, '..', '..', 'data', 'allowed_groups.json');
@@ -91,12 +91,33 @@ function isContactAllowed(jid) {
     return allowedContacts.has(jid);
 }
 
+function normalizeJid(jid) {
+    if (!jid || typeof jid !== 'string') return null;
+    // Remove sufixo de device (ex: 5511999999999:12@s.whatsapp.net)
+    return jid.replace(/:\d+(?=@)/, '');
+}
+
+function extractUserPart(jid) {
+    const normalized = normalizeJid(jid);
+    if (!normalized || !normalized.includes('@')) return null;
+    return normalized.split('@')[0];
+}
+
+function normalizeNonoDigito(userPart) {
+    if (!userPart || typeof userPart !== 'string') return userPart;
+    // Se for número brasileiro com 13 dígitos (ex: 5522992667333), remove o 9º dígito (o '9' após o DDD)
+    // para normalizar para o formato sem o 9º dígito (ex: 552292667333).
+    if (userPart.startsWith('55') && userPart.length === 13) {
+        return '55' + userPart.substring(2, 4) + userPart.substring(5);
+    }
+    return userPart;
+}
+
 module.exports = {
     loadAllowedGroups,
     addGroup,
     isGroupAllowed,
     loadAllowedContacts,
-    addAllowedContact,
     addAllowedContact,
     isContactAllowed,
     isSuperAdmin
@@ -106,13 +127,27 @@ module.exports = {
 function isSuperAdmin(jid) {
     if (!jid) return false;
 
-    
-    const normalizedJid = jid.split(':')[0];
+    const normalizedJid = normalizeJid(jid);
+    const userPart = extractUserPart(normalizedJid);
 
-    
-    if (config.ADMIN_JIDS && (config.ADMIN_JIDS.includes(jid) || config.ADMIN_JIDS.includes(normalizedJid))) return true;
+    if (config.ADMIN_JIDS && Array.isArray(config.ADMIN_JIDS)) {
+        for (const adminJid of config.ADMIN_JIDS) {
+            const normalizedAdmin = normalizeJid(adminJid);
+            if (!normalizedAdmin) continue;
 
-    
+            if (normalizedAdmin === normalizedJid || adminJid === jid) return true;
+
+            // Aceita equivalência entre domínios diferentes (ex.: @lid e @s.whatsapp.net)
+            // e faz a correspondência do nono dígito para números brasileiros
+            const adminUserPart = extractUserPart(normalizedAdmin);
+            if (adminUserPart && userPart) {
+                const normAdminUser = normalizeNonoDigito(adminUserPart);
+                const normUser = normalizeNonoDigito(userPart);
+                if (normAdminUser === normUser) return true;
+            }
+        }
+    }
+
     if (tempAdminManager.isTempAdmin(jid) || tempAdminManager.isTempAdmin(normalizedJid)) return true;
 
     return false;

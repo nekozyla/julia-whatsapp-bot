@@ -3,16 +3,17 @@ const fs = require('fs').promises;
 const path = require('path');
 
 const SETTINGS_FILE_PATH = path.join(__dirname, '..', '..', 'data', 'groupSettings.json');
-let settingsCache = {}; 
+let settingsCache = {};
 
 async function loadSettings() {
     try {
         const data = await fs.readFile(SETTINGS_FILE_PATH, 'utf-8');
         settingsCache = JSON.parse(data);
-        
+
+
     } catch (error) {
         if (error.code === 'ENOENT') {
-            
+
             settingsCache = {};
         } else {
             console.error('[Settings] Erro ao carregar configurações de grupo:', error);
@@ -38,7 +39,7 @@ async function setSetting(chatId, settingKey, value) {
     }
     settingsCache[chatId][settingKey] = value;
     await saveSettings();
-    console.log(`[Settings] Configuração '${settingKey}' para o chat ${chatId} definida como: ${value}`);
+
 }
 
 
@@ -46,10 +47,21 @@ function getAllSettings() {
     return settingsCache;
 }
 
+function getGroupsWithSetting(settingKey, expectedValue) {
+    return Object.keys(settingsCache).filter(chatId => {
+        // Verifica se a configuração existe e tem o valor esperado
+        // Se expectedValue for booleano true, também aceita se o valor for truthy
+        const val = settingsCache[chatId]?.[settingKey];
+        if (expectedValue === true) return !!val;
+        return val === expectedValue;
+    });
+}
+
 module.exports = {
     loadSettings,
     getSetting,
     setSetting,
-    getAllSettings 
+    getAllSettings,
+    getGroupsWithSetting
 };
 

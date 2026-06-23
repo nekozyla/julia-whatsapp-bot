@@ -1,24 +1,24 @@
 const axios = require('axios');
 const fs = require('fs').promises;
 const handlebars = require('handlebars');
-const config = require('../../config/config');
+const config = require('../../config');
 
 
 const puppeteer = require('puppeteer-core');
 const path = require('path');
-const fsSync = require('fs'); 
+const fsSync = require('fs');
 
 
 async function generateImage(html, outputPath, content = {}, options = { width: 800, height: 350 }) {
 
     let browser = null;
     try {
-        
+
         const template = handlebars.compile(html);
         const compiledHtml = template(content);
 
-        
-        
+
+
         const executablePath = path.resolve('./chromium_arm_final/chrome-linux/chrome');
 
         if (!fsSync.existsSync(executablePath)) {
@@ -45,10 +45,10 @@ async function generateImage(html, outputPath, content = {}, options = { width: 
             deviceScaleFactor: 2
         });
 
-        
+
         await page.setContent(compiledHtml, { waitUntil: 'networkidle0' });
 
-        
+
         await page.screenshot({ path: outputPath, type: 'png', omitBackground: true });
 
     } catch (error) {

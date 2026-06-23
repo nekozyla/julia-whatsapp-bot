@@ -1,7 +1,7 @@
 
 const { downloadMediaMessage, getContentType } = require('@whiskeysockets/baileys');
 const crypto = require('crypto');
-const { sendJuliaError } = require('../utils/utils');
+const { sendGiratinaError } = require('../utils/utils');
 const { Image } = require('node-webpmux');
 
 
@@ -27,38 +27,57 @@ async function addExif(buffer, options) {
 }
 
 async function handleRenameCommand(sock, msg, msgDetails) {
-    const { sender, commandText, quotedMsgInfo } = msgDetails;
-    const usageText = "Para usar, responda a uma figurinha com `!renomear` e as opções.\n\n*Exemplos:*\n- Para limpar: `!renomear`\n- Para novo pacote: `!renomear pack:\"Meu Pacote\"`\n- Para novo autor: `!renomear autor:\"Meu Nome\"`";
+    const { sender, commandText, quotedMsgInfo, prefix, commandName } = msgDetails;
 
-    if (!quotedMsgInfo || getContentType(quotedMsgInfo) !== 'stickerMessage') {
-        await sock.sendMessage(sender, { text: usageText }, { quoted: msg });
+    const quotedType = quotedMsgInfo ? getContentType(quotedMsgInfo) : null;
+
+    // Recusa silenciosamente se for Lottie
+    if (quotedType === 'lottieStickerMessage' || (quotedType === 'stickerMessage' && (quotedMsgInfo.stickerMessage?.isLottie || quotedMsgInfo.stickerMessage?.mimetype === 'application/was'))) {
+        return true;
+    }
+
+    if (!quotedMsgInfo || quotedType !== 'stickerMessage') {
+        await sock.sendMessage(sender, {
+            text: `┏━━❪ 𝗥𝗘𝗡𝗔𝗠𝗘 ❫━━\n┃\n┃ ➢ 𝗨𝘀𝗼 › Responda uma figurinha\n┃\n┣━━❪ ⚙️ 𝗢𝗽çõ𝗲𝘀 ❫━━\n┃\n┃ ➢ ${prefix}${commandName} "Pack" "Autor"\n┃ ➢ ${prefix}${commandName} "Só o Pack"\n┃ ➢ ${prefix}${commandName} (limpar)\n┃\n┗━━━━━━━━━━━━━━`
+        }, { quoted: msg });
         return true;
     }
 
     const argsString = (commandText || '').substring(msgDetails.command.length).trim();
     const options = { pack: '', author: '' };
-    const packRegex = /pack:(?:"([^"]+)"|'([^']+)')/i;
-    const authorRegex = /autor:(?:"([^"]+)"|'([^']+)')/i;
-    const packMatch = argsString.match(packRegex);
-    const authorMatch = argsString.match(authorRegex);
-    if (packMatch) options.pack = packMatch[1] || packMatch[2] || '';
-    if (authorMatch) options.author = authorMatch[1] || authorMatch[2] || '';
-    
+
+    // Sintaxe simples: "Pack" "Autor"
+    const quotedMatches = [...argsString.matchAll(/(?:"([^"]*)"|'([^']*)')/g)];
+    if (quotedMatches.length >= 1 && !argsString.includes('pack:') && !argsString.includes('autor:')) {
+        options.pack = quotedMatches[0]?.[1] ?? quotedMatches[0]?.[2] ?? '';
+        options.author = quotedMatches[1]?.[1] ?? quotedMatches[1]?.[2] ?? '';
+    } else {
+        // Retrocompatível com pack:"..." autor:"..."
+        const packRegex = /pack:(?:"([^"]+)"|'([^']+)')/i;
+        const authorRegex = /autor:(?:"([^"]+)"|'([^']+)')/i;
+        const packMatch = argsString.match(packRegex);
+        const authorMatch = argsString.match(authorRegex);
+        if (packMatch) options.pack = packMatch[1] || packMatch[2] || '';
+        if (authorMatch) options.author = authorMatch[1] || authorMatch[2] || '';
+    }
+
     try {
         await sock.sendPresenceUpdate('composing', sender);
-        
+
         const buffer = await downloadMediaMessage({ key: msg.message.extendedTextMessage.contextInfo.quotedMessage.key, message: quotedMsgInfo }, 'buffer', {}, { logger: undefined });
-        
+
         const bufferWithExif = await addExif(buffer, options);
-        
+
         await sock.sendMessage(sender, { sticker: bufferWithExif });
 
     } catch (err) {
         console.error('[Renomear] Erro ao recriar figurinha:', err);
-        await sendJuliaError(sock, sender, msg, err);
+        await sock.sendMessage(sender, {
+            text: `┏━━❪ 𝗪𝗔𝗥𝗡 ❫━━\n┃\n┃ ➢ 𝗘𝗥𝗥𝗢 › Falha ao renomear figurinha\n┃ ➢ 𝗗𝗶𝗰𝗮 › Tente novamente\n┃\n┗━━━━━━━━━━━━━━`
+        }, { quoted: msg });
     }
-    
-    return true; 
+
+    return true;
 }
 
 module.exports = handleRenameCommand;
@@ -68,6 +87,6 @@ module.exports.commandData = {
     name: "renomear",
     description: "Renomeia pacote/autor de figurinha.",
     category: "midia",
-    usage: "/renomear",
-    aliases: ["/rename","/nome","/r"]
+    usage: "/renomear \"Pack\" \"Autor\"",
+    aliases: ["/rename", "/nome", "/r"]
 };

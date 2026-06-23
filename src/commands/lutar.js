@@ -51,7 +51,7 @@ module.exports = lutar;
 module.exports.commandData = {
     name: "lutar",
     description: "Desafia para PvP.",
-    category: "diversao",
+    category: "jogos",
     usage: "/lutar",
     aliases: []
 };

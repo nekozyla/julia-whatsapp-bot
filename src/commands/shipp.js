@@ -1,4 +1,4 @@
-const { sendJuliaError } = require('../utils/utils');
+const { sendGiratinaError } = require('../utils/utils');
 const { generateImage } = require('../helpers/imageGenerator');
 const { shippCardTemplate } = require('../helpers/htmlTemplates');
 const contactManager = require('../managers/contactManager');
@@ -94,7 +94,7 @@ async function handleShippCommand(sock, msg, msgDetails) {
 
     } catch (error) {
         console.error('[SHIPP] Error:', error);
-        await sendJuliaError(sock, sender, msg, error);
+        await sendGiratinaError(sock, sender, msg, error);
     }
 
     return true;

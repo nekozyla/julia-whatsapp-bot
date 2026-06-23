@@ -1,10 +1,8 @@
 async function ping(sock, msg, msgDetails) {
     const { sender } = msgDetails;
 
-    
     let timestamp = msg.messageTimestamp;
 
-    
     if (typeof timestamp === 'object' && timestamp !== null) {
         timestamp = timestamp.low || timestamp.toNumber?.() || Date.now() / 1000;
     }
@@ -13,9 +11,15 @@ async function ping(sock, msg, msgDetails) {
     const now = Date.now();
     const latency = now - msgTime;
 
-    const text = `🏓 *Pong!* \n⚡ Latência: ${latency > 0 ? latency : 0}ms`;
+    const text = `┏━━❪ 𝗣𝗢𝗡𝗚 ❫━━\n┃\n┃ ➢ 𝗟𝗮𝘁𝗲𝗻𝗰𝗶𝗮 › ${latency > 0 ? latency : 0}ms\n┃ ➢ 𝗦𝗧𝗔𝗧𝗨𝗦 › Online\n┃\n┗━━━━━━━━━━━━━━`;
 
-    await sock.sendMessage(sender, { text }, { quoted: msg });
+    console.log('[DEBUG-SEND] Tentando enviar resposta no PV para', sender);
+    try {
+        await sock.sendMessage(sender, { text }, { quoted: msg });
+        console.log('[DEBUG-SEND] Resposta enviada com sucesso para', sender);
+    } catch (e) {
+        console.error('[DEBUG-SEND] Erro ao enviar resposta para', sender, 'Erro:', e);
+    }
 }
 
 module.exports = ping;
@@ -26,5 +30,5 @@ module.exports.commandData = {
     description: "Verifica latência.",
     category: "util",
     usage: "/ping",
-    aliases: ["/latencia","/ms","/status"]
+    aliases: ["/latencia", "/ms", "/status"]
 };

@@ -1,5 +1,8 @@
 const ticTacToeManager = require('../managers/ticTacToeManager');
-const { sendJuliaError } = require('../utils/utils');
+const { sendGiratinaError } = require('../utils/utils');
+const config = require('../../config.js');
+
+const BOT_NAME = config.BOT_NAME || 'Bot';
 
 async function handleVelhaCommand(sock, msg, msgDetails) {
     const { sender, commandText, isGroup, commandSenderJid, pushName } = msgDetails;
@@ -112,7 +115,7 @@ async function handleVelhaCommand(sock, msg, msgDetails) {
 
     
     await sock.sendMessage(sender, {
-        text: `❌⭕ *Jogo da Velha Julia*\n\nUse:\n\`/velha @usuario\` - Desafiar alguém\n\`/velha aceitar\` - Aceitar desafio\n\`/velha [1-9]\` - Fazer jogada\n\`/velha desistir\` - Cancelar jogo`
+        text: `❌⭕ *Jogo da Velha ${BOT_NAME}*\n\nUse:\n\`/velha @usuario\` - Desafiar alguém\n\`/velha aceitar\` - Aceitar desafio\n\`/velha [1-9]\` - Fazer jogada\n\`/velha desistir\` - Cancelar jogo`
     }, { quoted: msg });
 }
 
@@ -122,7 +125,7 @@ module.exports = handleVelhaCommand;
 module.exports.commandData = {
     name: "velha",
     description: "Jogo da velha.",
-    category: "diversao",
+    category: "jogos",
     usage: "/velha",
     aliases: ["/jogodavelha","/tictactoe","/ttt"]
 };

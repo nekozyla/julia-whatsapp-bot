@@ -5,7 +5,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const { exec } = require('child_process');
 const crypto = require('crypto');
-const { sendJuliaError, getTempDir } = require('../utils/utils.js');
+const { sendGiratinaError, getTempDir } = require('../utils/utils.js');
 
 
 async function fryVideo(mediaBuffer, scalePercent) {
@@ -177,7 +177,7 @@ async function handleFritarCommand(sock, msg, msgDetails) {
             errorMsg += " Houve um erro interno no processamento de vídeo.";
         }
 
-        await sendJuliaError(sock, sender, msg, error, errorMsg);
+        await sendGiratinaError(sock, sender, msg, error, errorMsg);
     }
 
     return true;

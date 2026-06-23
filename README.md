@@ -189,6 +189,29 @@ node src/main.js
 | `/sincronizar` | `/sync`, `/sinc` | Sincroniza dados |
 | `/restart` | `/reiniciar`, `/reset` | Reinicia o bot |
 
+### 🎮 Integração Minecraft (Plugin WhatsAppBridge)
+
+Comandos para gerenciar e interagir com o servidor de Minecraft vinculado (Paper 1.21).
+
+| Comando | Aliases | Descrição | Requisito |
+|---------|---------|-----------|-----------|
+| `/minecraft info` | - | Status geral do servidor (TPS, RAM, Uptime) | Todos |
+| `/minecraft players` | - | Lista de jogadores online no momento | Todos |
+| `/minecraft player <nome>`| - | Visualiza a skin premium e status do jogador | Todos |
+| `/minecraft timeline` | `/online` | Gráfico de atividade recente em imagem (HTML) | Todos |
+| `/minecraft mapa <nome>` | `/map` | Minimapa do grid de blocos em volta do jogador | Todos |
+| `/minecraft chat` | `/batepapo` | Mostra as mensagens recentes do chat in-game | Todos |
+| `/minecraft vincular <nick>`| `/link` | Inicia o processo de vínculo de conta com o jogo | Todos |
+| `/minecraft seed` | - | Exibe a seed do mapa atual do servidor | Todos |
+| `/minecraft mundos` | - | Informações de dimensões carregadas | Todos |
+| `/minecraft plugins` | - | Lista os plugins ativos no servidor | Todos |
+| `/minecraft mods` | - | Lista os mods do modpack recomendados | Todos |
+| `/minecraft perf` | `/hardware` | Gráficos de TPS e uso de memória RAM do Java | Todos |
+| `/minecraft definirchat`| - | Integra o grupo do WhatsApp ao chat do jogo | Super Admin |
+| `/minecraft config` | - | Habilita/desabilita logs (chat/join/quit) no grupo | Admin |
+| `/minecraft tag` | - | Cria/atribui tags coloridas para o chat do jogo | Admin |
+| `/minecraft cmd <comando>`| - | Executa comandos no console do Minecraft | Super Admin |
+
 ---
 
 ## 🛠️ Tecnologias

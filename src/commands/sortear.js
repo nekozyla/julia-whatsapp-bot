@@ -1,6 +1,6 @@
 const raffleManager = require('../managers/raffleManager');
 const groupMetadataManager = require('../managers/groupMetadataManager');
-const { sendJuliaError } = require('../utils/utils');
+const { sendGiratinaError } = require('../utils/utils');
 
 async function handleSortearCommand(sock, msg, msgDetails) {
     const { sender, commandText, isGroup, commandSenderJid, pushName, command, botJid } = msgDetails;
@@ -114,7 +114,7 @@ async function handleSortearCommand(sock, msg, msgDetails) {
         });
 
     } catch (error) {
-        await sendJuliaError(sock, sender, msg, error);
+        await sendGiratinaError(sock, sender, msg, error);
     }
 }
 

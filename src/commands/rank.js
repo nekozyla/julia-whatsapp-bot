@@ -60,8 +60,12 @@ async function handleRankCommand(sock, msg, msgDetails) {
     }
 
     let rankText = isFullMode ? `*🏆 Ranking Completo do Grupo 🏆*\n\n` : `*🏆 Ranking dos Mais Faladores do Grupo 🏆*\n\n`;
+    const mentions = [];
 
-    topUsers.forEach((user, index) => {
+    // Filtra quem saiu do grupo
+    const activeUsers = topUsers.filter(user => participants[user.jid]);
+
+    activeUsers.forEach((user, index) => {
         const jid = user.jid;
         const count = user.count;
 
@@ -72,19 +76,17 @@ async function handleRankCommand(sock, msg, msgDetails) {
         if (nickname) {
             // Se tem nick, usa o nick
             displayName = nickname;
-        } else if (participants[jid]) {
-            // Se não tem nick mas está no grupo, usa o nome do WhatsApp
-            displayName = participants[jid].notify || jid.split('@')[0];
         } else {
-            // Se saiu do grupo
-            displayName = '(Saiu do grupo)';
+            // Se não tem nick, marca o usuário
+            displayName = `@${jid.split('@')[0]}`;
+            mentions.push(jid);
         }
 
         const medal = ['🥇', '🥈', '🥉'][index] || `*${index + 1}.*`;
         rankText += `${medal} ${displayName} - *${count}* mensagens\n`;
     });
 
-    await sock.sendMessage(chatJid, { text: rankText.trim() });
+    await sock.sendMessage(chatJid, { text: rankText.trim(), mentions });
 }
 
 

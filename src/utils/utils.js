@@ -4,7 +4,7 @@ const fs = require('fs').promises;
 const { tmpdir } = require('os');
 const path = require('path');
 const ffmpegStatic = require('ffmpeg-static');
-const fsSync = require('fs'); 
+const fsSync = require('fs');
 
 let ffmpegPath = process.env.FFMPEG_PATH;
 
@@ -30,45 +30,57 @@ const ffmpeg = ffmpegPath;
 const ffprobe = require('ffprobe-static');
 
 
-async function sendJuliaError(sock, chatJid, originalMsg, error) {
-    console.error(`[Erro Handler para ${chatJid}]: ${error.message} (Status: ${error.status || 'N/A'})`);
-    console.error(error.stack); 
 
-    let friendlyMessage = `😕 Tive um probleminha aqui e não consegui processar o seu pedido.`; 
+const { formatError, formatSuccess } = require('./theme');
 
-    
+async function sendGiratinaError(sock, chatJid, originalMsg, error) {
+    console.error(`[Error Handler for ${chatJid}]: ${error.message} (Status: ${error.status || 'N/A'})`);
+    console.error(error.stack);
+
+    let friendlyMessage = `⚠️ *A disturbance in the Pokemon universe*\n\nI could not complete your request.`;
+
     if (error.message && error.message.includes('GoogleGenerativeAI Error')) {
         if (error.message.includes('500 Internal Server Error')) {
-            
-            console.warn(`[Erro Handler] Erro 500 do Google, ignorando a mensagem para o utilizador.`);
+            console.warn(`[Error Handler] Google 500 error, skipping user-facing message.`);
             return;
         }
         if (error.message.includes('API key not valid')) {
-            friendlyMessage = "🔑 Minha chave de API para o Gemini não é válida. A minha criadora precisa de verificar o ficheiro `.env`.";
+            friendlyMessage = "🔑 *Invalid Dimension Key*\nMy Gemini API key needs to be checked in the `.env` file.";
         } else if (error.message.includes('quota')) {
-            friendlyMessage = " overworked. Atingi o meu limite de pedidos à IA por enquanto. Por favor, tente novamente mais tarde.";
+            friendlyMessage = "⏳ *Energy Drained*\nI hit my processing limit for now. Try again later.";
         }
     } else if (error.message.includes('FFMPEG')) {
-        friendlyMessage = "😕 Tive um problema ao processar o ficheiro de mídia. Ele pode estar num formato que eu não consigo ler.";
+        friendlyMessage = "📼 *Corrupted File*\nI had trouble processing the media file. The format may be invalid.";
     } else {
-        
-        
-        friendlyMessage = `😕 Tive um probleminha aqui: ${error.message}`;
+        friendlyMessage = `⚠️ *Execution Failed*\n\n${error.message}`;
     }
 
     try {
-        await sock.sendMessage(chatJid, { text: friendlyMessage }, { quoted: originalMsg });
+        await sock.sendMessage(chatJid, { text: formatError(friendlyMessage) }, { quoted: originalMsg });
     } catch (sendError) {
-        console.error(`[Erro Handler] Falha ao enviar a mensagem de erro para ${chatJid}:`, sendError);
+        console.error(`[Error Handler] Failed to send the error message to ${chatJid}:`, sendError);
     }
 }
+
 
 
 
 function getTextFromMsg(message) {
     if (!message) return null;
 
-    
+    const ephemeralContainer = message.ephemeralMessage;
+    if (ephemeralContainer?.message) {
+        const nestedText = getTextFromMsg(ephemeralContainer.message);
+        if (nestedText) return nestedText;
+    }
+
+    const viewOnceContainer = message.viewOnceMessage || message.viewOnceMessageV2 || message.viewOnceMessageV2Extension;
+    if (viewOnceContainer?.message) {
+        const nestedText = getTextFromMsg(viewOnceContainer.message);
+        if (nestedText) return nestedText;
+    }
+
+
     return message.conversation ||
         message.extendedTextMessage?.text ||
         message.imageMessage?.caption ||
@@ -195,7 +207,7 @@ async function getChromiumPath() {
 }
 
 module.exports = {
-    sendJuliaError,
+    sendGiratinaError,
     getTextFromMsg,
     extractCommandText,
     convertAudioToWav,
@@ -204,13 +216,18 @@ module.exports = {
     getTempDir,
     getChromiumPath,
     normalizeText,
-    convertGifToMp4
+    convertGifToMp4,
+    getRandomToken
 };
 
 
 function normalizeText(text) {
     if (!text) return '';
     return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+function getRandomToken() {
+    return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 }
 
 
@@ -227,7 +244,7 @@ async function convertGifToMp4(gifBuffer) {
             '-i', inputPath,
             '-movflags', 'faststart',
             '-pix_fmt', 'yuv420p',
-            '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2', 
+            '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2',
             '-f', 'mp4',
             outputPath
         ]);

@@ -5,7 +5,6 @@ module.exports = async (sock, msg, msgDetails) => {
 
     try {
         if (isGroup) {
-            
             const contextInfo = msg.message.extendedTextMessage?.contextInfo;
             const mentioned = contextInfo?.mentionedJid?.[0];
             const quotedParticipant = contextInfo?.participant;
@@ -13,25 +12,24 @@ module.exports = async (sock, msg, msgDetails) => {
             const targetJid = mentioned || quotedParticipant;
 
             if (targetJid) {
-                await sock.sendMessage(sender, { text: `O JID do utilizador marcado é:\n\`\`\`${targetJid}\`\`\`` }, { quoted: msg });
-                console.log(`[JID] JID do utilizador ${targetJid} solicitado por ${commandSenderJid} no grupo ${sender}.`);
+                await sock.sendMessage(sender, {
+                    text: `┏━━❪ 𝗝𝗜𝗗 ❫━━\n┃\n┃ ➢ 𝗧𝗶𝗽𝗼 › Usuário\n┃ ➢ 𝗜𝗗 › \`\`\`${targetJid}\`\`\`\n┃\n┗━━━━━━━━━━━━━━`
+                }, { quoted: msg });
             } else {
-                
-                const groupJid = sender;
-                await sock.sendMessage(groupJid, { text: `O JID deste grupo é:\n\`\`\`${groupJid}\`\`\`` }, { quoted: msg });
-                console.log(`[JID] JID do grupo ${groupJid} solicitado por ${commandSenderJid}.`);
+                await sock.sendMessage(sender, {
+                    text: `┏━━❪ 𝗝𝗜𝗗 ❫━━\n┃\n┃ ➢ 𝗧𝗶𝗽𝗼 › Grupo\n┃ ➢ 𝗜𝗗 › \`\`\`${sender}\`\`\`\n┃\n┗━━━━━━━━━━━━━━`
+                }, { quoted: msg });
             }
         } else {
-            
-            const userJid = commandSenderJid;
-            await sock.sendMessage(userJid, { text: `O seu JID é:\n\`\`\`${userJid}\`\`\`` }, { quoted: msg });
-            console.log(`[JID] JID do utilizador ${userJid} solicitado.`);
+            await sock.sendMessage(sender, {
+                text: `┏━━❪ 𝗝𝗜𝗗 ❫━━\n┃\n┃ ➢ 𝗧𝗶𝗽𝗼 › Seu JID\n┃ ➢ 𝗜𝗗 › \`\`\`${commandSenderJid}\`\`\`\n┃\n┗━━━━━━━━━━━━━━`
+            }, { quoted: msg });
         }
     } catch (error) {
         console.error("Erro no comando /jid:", error);
     }
 
-    return true; 
+    return true;
 };
 
 
@@ -39,6 +37,6 @@ module.exports.commandData = {
     name: "jid",
     description: "Mostra ID do chat/usuário.",
     category: "util",
-    usage: "/jid",
-    aliases: ["/id","/myid"]
+    usage: "/jid [@user]",
+    aliases: ["/id", "/myid"]
 };

@@ -7,7 +7,7 @@ const fs = require('fs');
 const { exec } = require('child_process');
 const crypto = require('crypto');
 const ffmpegStatic = require('ffmpeg-static');
-const { sendJuliaError, getTempDir } = require('../utils/utils');
+const { sendGiratinaError, getTempDir } = require('../utils/utils');
 
 async function handleToImageCommand(sock, msg, msgDetails) {
     const { sender, quotedMsgInfo, pushName } = msgDetails;
@@ -108,7 +108,7 @@ async function handleToImageCommand(sock, msg, msgDetails) {
 
     } catch (error) {
         console.error("[ToImage] Erro ao converter figurinha:", error);
-        await sendJuliaError(sock, sender, msg, error);
+        await sendGiratinaError(sock, sender, msg, error);
     } finally {
         
         await fsp.unlink(inputGifPath).catch(() => { });

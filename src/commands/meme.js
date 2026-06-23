@@ -1,7 +1,10 @@
 
 
 const axios = require('axios');
-const { IMGFLIP_USERNAME, IMGFLIP_PASSWORD } = require('../../config/config.js');
+const { IMGFLIP_USERNAME, IMGFLIP_PASSWORD } = require('../../config.js');
+const config = require('../../config.js');
+
+const BOT_NAME = config.BOT_NAME || 'Bot';
 
 
 let memeTemplates = [];
@@ -63,7 +66,7 @@ module.exports = async (sock, msg, msgDetails) => {
     if (!templateIdentifier) {
         
         const fullMemeList = memeTemplates.map((m, index) => `*${index + 1}.* \`${m.name}\``).join('\n');
-        const tutorialText = `*Gerador de Memes da Julia* 🖼️\n\nCrie um meme usando os templates mais populares!\n\n*Como usar:*\n\`/meme <número> "texto de cima" "texto de baixo"\`\n\n*Exemplo:*\n\`/meme 1 "Ninguém simplesmente" "cria um comando de meme tão rápido"\`\n\n*Lista Completa de Memes Populares:*\n${fullMemeList}`;
+        const tutorialText = `*Gerador de Memes da ${BOT_NAME}* 🖼️\n\nCrie um meme usando os templates mais populares!\n\n*Como usar:*\n\`/meme <número> "texto de cima" "texto de baixo"\`\n\n*Exemplo:*\n\`/meme 1 "Ninguém simplesmente" "cria um comando de meme tão rápido"\`\n\n*Lista Completa de Memes Populares:*\n${fullMemeList}`;
         await sock.sendMessage(sender, { text: tutorialText }, { quoted: msg });
         return;
     }

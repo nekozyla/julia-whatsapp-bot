@@ -1,7 +1,10 @@
 
 const { downloadMediaMessage } = require('@whiskeysockets/baileys');
 const { textModel } = require('../managers/geminiClient'); 
-const { sendJuliaError, convertAudioToWav } = require('../utils/utils');
+const { sendGiratinaError, convertAudioToWav } = require('../utils/utils');
+const config = require('../../config.js');
+
+const BOT_NAME = config.BOT_NAME || 'Bot';
 
 
 async function transcribeAudio(sock, msgToTranscribe, originalMsgToQuote) {
@@ -34,12 +37,12 @@ async function transcribeAudio(sock, msgToTranscribe, originalMsgToQuote) {
         
         console.log(`[Transcrever] Transcrição recebida.`);
 
-        const replyText = `*Transcrição da Julia:*\n\n> ${transcription || "(Não foi possível extrair texto do áudio.)"}`;
+        const replyText = `*Transcrição da ${BOT_NAME}:*\n\n> ${transcription || "(Não foi possível extrair texto do áudio.)"}`;
         await sock.sendMessage(chatJid, { text: replyText }, { quoted: originalMsgToQuote });
 
     } catch (error) {
         console.error("[Transcrever] Erro ao transcrever áudio:", error);
-        await sendJuliaError(sock, chatJid, originalMsgToQuote, error);
+        await sendGiratinaError(sock, chatJid, originalMsgToQuote, error);
     }
 }
 

@@ -1,5 +1,5 @@
 
-const { sendJuliaError } = require('../utils/utils');
+const { sendGiratinaError } = require('../utils/utils');
 const settingsManager = require('../managers/groupSettingsManager');
 
 
@@ -81,7 +81,7 @@ async function handleTopXCommand(sock, msg, msgDetails) {
         });
 
     } catch (error) {
-        await sendJuliaError(sock, sender, msg, error);
+        await sendGiratinaError(sock, sender, msg, error);
     }
 
     return true; 

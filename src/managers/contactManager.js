@@ -10,10 +10,10 @@ async function loadContacts() {
         const data = await fs.readFile(CONTACTS_FILE_PATH, 'utf-8');
         const loadedJids = JSON.parse(data);
         contactsCache = new Set(loadedJids);
-        
+
     } catch (error) {
         if (error.code === 'ENOENT') {
-            
+
         }
     }
 }
@@ -26,11 +26,44 @@ async function saveContacts() {
     }
 }
 
+let _sock = null;
+
+function setSock(sock) {
+    _sock = sock;
+}
+
 async function addContact(jid) {
     if (jid.endsWith('@s.whatsapp.net') && !contactsCache.has(jid)) {
         contactsCache.add(jid);
         await saveContacts();
+        // Subscrever presença para que o contato possa ver os status do bot (WA Business)
+        await subscribePresence(jid);
     }
+}
+
+async function subscribePresence(jid) {
+    if (!_sock || !jid.endsWith('@s.whatsapp.net')) return;
+    try {
+        await _sock.presenceSubscribe(jid);
+    } catch (e) {
+        // Silencioso — presenceSubscribe pode falhar para JIDs inválidos
+    }
+}
+
+async function subscribeAllContacts() {
+    if (!_sock) return;
+    const contacts = [...contactsCache];
+
+    let ok = 0;
+    for (const jid of contacts) {
+        try {
+            await _sock.presenceSubscribe(jid);
+            ok++;
+        } catch (_) { }
+        // Pequeno delay para não floodar o WhatsApp
+        if (ok % 50 === 0) await new Promise(r => setTimeout(r, 1000));
+    }
+
 }
 
 
@@ -38,7 +71,7 @@ async function removeContact(jid) {
     if (contactsCache.has(jid)) {
         contactsCache.delete(jid);
         await saveContacts();
-        console.log(`[Contacts] Contacto removido: ${jid}`);
+
         return true;
     }
     return false;
@@ -82,6 +115,29 @@ function getNickname(jid) {
 
 }
 
+function checkNicknameExists(nickname) {
+    const lowerNick = nickname.toLowerCase();
+    return Object.values(nicknamesCache).some(nick => nick.toLowerCase() === lowerNick);
+}
+
+function getJidByNickname(nickname) {
+    if (!nickname) return null;
+    const normalized = String(nickname).trim().replace(/^@+/, '').toLowerCase();
+    if (!normalized) return null;
+
+    for (const [jid, nick] of Object.entries(nicknamesCache)) {
+        if (String(nick).toLowerCase() === normalized) {
+            return jid;
+        }
+    }
+
+    return null;
+}
+
+function getAllNicknames() {
+    return { ...nicknamesCache };
+}
+
 function getContacts() {
     return [...contactsCache];
 }
@@ -93,6 +149,12 @@ module.exports = {
     removeContact,
     updateContact,
     getNickname,
-    loadNicknames
+    loadNicknames,
+    checkNicknameExists,
+    getJidByNickname,
+    getAllNicknames,
+    setSock,
+    subscribeAllContacts,
+    subscribePresence
 };
 

@@ -1,24 +1,14 @@
 
-const { sendJuliaError } = require('../utils/utils.js');
+const { sendGiratinaError } = require('../utils/utils.js');
 const fs = require('fs').promises;
 const path = require('path');
 const groupMetadataManager = require('../managers/groupMetadataManager.js');
+const config = require('../../config.js');
 
-const BOT_JID_CACHE_PATH = path.join(__dirname, '..', '..', 'data', 'bot_jid_cache.json');
-
-
-async function getBotJid(groupId) {
-    try {
-        const data = await fs.readFile(BOT_JID_CACHE_PATH, 'utf-8');
-        const cache = JSON.parse(data);
-        return cache[groupId] || cache['global'];
-    } catch (error) {
-        return null;
-    }
-}
+const BOT_NAME = config.BOT_NAME || 'Bot';
 
 async function handlePromoteCommand(sock, msg, msgDetails) {
-    const { sender: chatJid, commandSenderJid } = msgDetails;
+    const { sender: chatJid, commandSenderJid, botJid } = msgDetails;
 
     if (!msgDetails.isGroup) {
         await sock.sendMessage(chatJid, { text: "Este comando só pode ser usado em grupos." });
@@ -27,15 +17,14 @@ async function handlePromoteCommand(sock, msg, msgDetails) {
 
     try {
         const groupMetadata = await groupMetadataManager.getGroupMetadata(sock, chatJid);
-        const botId = await getBotJid(chatJid); 
 
-        if (!botId) {
-            await sock.sendMessage(chatJid, { text: "Não consegui verificar minha identidade neste grupo. Por favor, execute o comando `/sync @Julia` primeiro." }, { quoted: msg });
+        if (!botJid) {
+            await sock.sendMessage(chatJid, { text: `Não consegui verificar minha identidade neste grupo. Execute \`/fixjid @${BOT_NAME}\`.` }, { quoted: msg });
             return;
         }
 
         const senderParticipant = groupMetadata.participants.find(p => p.id === commandSenderJid);
-        const botParticipant = groupMetadata.participants.find(p => p.id === botId);
+        const botParticipant = groupMetadata.participants.find(p => p.id === botJid);
 
         if (!senderParticipant?.admin) {
             await sock.sendMessage(chatJid, { text: "Apenas administradores podem promover membros." }, { quoted: msg });
@@ -65,7 +54,7 @@ async function handlePromoteCommand(sock, msg, msgDetails) {
 
     } catch (error) {
         console.error("[Promote] Erro:", error);
-        await sendJuliaError(sock, chatJid, msg, error);
+        await sendGiratinaError(sock, chatJid, msg, error);
     }
 }
 
@@ -77,5 +66,5 @@ module.exports.commandData = {
     description: "Promove a admin.",
     category: "admin",
     usage: "/promote",
-    aliases: ["/promover","/up"]
+    aliases: ["/promover", "/up"]
 };

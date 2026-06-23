@@ -1,6 +1,6 @@
 const authManager = require('../managers/authManager.js');
 const tempAdminManager = require('../managers/tempAdminManager.js');
-const { sendJuliaError, normalizeText } = require('../utils/utils.js');
+const { sendGiratinaError, normalizeText } = require('../utils/utils.js');
 
 async function handleAddTempAdminCommand(sock, msg, msgDetails) {
     const { sender, commandText, commandSenderJid, isGroup } = msgDetails;
@@ -71,7 +71,7 @@ async function handleAddTempAdminCommand(sock, msg, msgDetails) {
         console.log(`[TempAdmin] ${commandSenderJid} adicionou ${targetJid} como admin por ${durationStr}. Expira: ${dateStr}`);
 
     } catch (error) {
-        await sendJuliaError(sock, sender, msg, error);
+        await sendGiratinaError(sock, sender, msg, error);
     }
 }
 

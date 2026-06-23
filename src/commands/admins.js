@@ -1,5 +1,5 @@
 const groupMetadataManager = require('../managers/groupMetadataManager.js');
-const { sendJuliaError } = require('../utils/utils.js');
+const { sendGiratinaError } = require('../utils/utils.js');
 
 async function handleAdminsCommand(sock, msg, msgDetails) {
     const { sender, commandText, command } = msgDetails;
@@ -36,7 +36,7 @@ async function handleAdminsCommand(sock, msg, msgDetails) {
         }, { quoted: msg });
 
     } catch (error) {
-        await sendJuliaError(sock, sender, msg, error);
+        await sendGiratinaError(sock, sender, msg, error);
     }
 }
 

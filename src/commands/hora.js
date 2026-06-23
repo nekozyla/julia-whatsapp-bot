@@ -3,14 +3,14 @@ const dayjs = require('dayjs');
 const utc = require('dayjs/plugin/utc');
 const timezone = require('dayjs/plugin/timezone');
 const localizedFormat = require('dayjs/plugin/localizedFormat');
-require('dayjs/locale/pt-br'); 
+require('dayjs/locale/pt-br');
 
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
 dayjs.extend(localizedFormat);
-dayjs.locale('pt-br'); 
-dayjs.tz.setDefault("America/Sao_Paulo"); 
+dayjs.locale('pt-br');
+dayjs.tz.setDefault("America/Sao_Paulo");
 
 const commonTimezones = {
     'brasil': 'America/Sao_Paulo',
@@ -53,12 +53,11 @@ const commonTimezones = {
 };
 
 async function handleHoraCommand(sock, msg, msgDetails) {
-    const { sender, command, commandText } = msgDetails;
+    const { sender, command, commandText, prefix, commandName } = msgDetails;
 
     try {
         let targetZone = 'America/Sao_Paulo';
 
-        
         let query = '';
         if (commandText && commandText.startsWith(command)) {
             query = commandText.slice(command.length).trim().toLowerCase();
@@ -70,36 +69,28 @@ async function handleHoraCommand(sock, msg, msgDetails) {
             if (commonTimezones[query]) {
                 targetZone = commonTimezones[query];
             } else {
-                
-                
-                
                 try {
-                    
                     dayjs().tz(query);
-                    targetZone = query; 
+                    targetZone = query;
                 } catch (e) {
-                    
                     const availableZones = Object.keys(commonTimezones).join(', ');
                     return sock.sendMessage(sender, {
-                        text: `❌ Fuso horário "${query}" não reconhecido.\n\nTente usar um destes atalhos:\n${availableZones}\n\nOu use o formato IANA (ex: America/Los_Angeles).`
+                        text: `┏━━❪ 𝗪𝗔𝗥𝗡 ❫━━\n┃\n┃ ➢ 𝗘𝗥𝗥𝗢 › Fuso "${query}" não encontrado\n┃\n┣━━❪ 𝗔𝗧𝗔𝗟𝗛𝗢𝗦 ❫━━\n┃\n┃ ➢ ${availableZones}\n┃\n┗━━━━━━━━━━━━━━`
                     }, { quoted: msg });
                 }
             }
         }
 
-        
         const now = dayjs().tz(targetZone);
-
-        
         const formattedTime = now.format('dddd, D [de] MMMM [de] YYYY [às] HH:mm:ss');
 
-        const replyText = `🕒 *Hora Mundial*\n\n📍 *Local:* ${targetZone}\n⌚ *Hora:* ${formattedTime}`;
-
-        await sock.sendMessage(sender, { text: replyText }, { quoted: msg });
+        await sock.sendMessage(sender, {
+            text: `┏━━❪ 🕒 𝗛𝗢𝗥𝗔 ❫━━\n┃\n┃ ➢ 𝗟𝗼𝗰𝗮𝗹 › ${targetZone}\n┃ ➢ 𝗛𝗼𝗿𝗮 › ${formattedTime}\n┃\n┗━━━━━━━━━━━━━━`
+        }, { quoted: msg });
 
     } catch (error) {
         console.error("[Hora] Erro ao obter a hora:", error);
-        await sock.sendMessage(sender, { text: "Ocorreu um erro ao tentar verificar a hora. Verifique se o fuso horário é válido." }, { quoted: msg });
+        await sock.sendMessage(sender, { text: `┏━━❪ 𝗪𝗔𝗥𝗡 ❫━━\n┃\n┃ ➢ 𝗘𝗥𝗥𝗢 › Fuso horário inválido\n┃\n┗━━━━━━━━━━━━━━` }, { quoted: msg });
     }
 
     return true;
@@ -112,6 +103,6 @@ module.exports.commandData = {
     name: "hora",
     description: "Mostra hora atual.",
     category: "util",
-    usage: "/hora",
-    aliases: ["/tempo","/relogio","/time"]
+    usage: "/hora [local]",
+    aliases: ["/tempo", "/relogio", "/time"]
 };

@@ -1,7 +1,7 @@
 
 const { downloadMediaMessage, getContentType } = require('@whiskeysockets/baileys');
 const sharp = require('sharp');
-const { sendJuliaError } = require('../utils/utils.js');
+const { sendGiratinaError } = require('../utils/utils.js');
 
 
 async function handleFritarCommand(sock, msg, msgDetails) {
@@ -68,7 +68,7 @@ async function handleFritarCommand(sock, msg, msgDetails) {
     } catch (error) {
         console.error('[Fritar] Erro ao processar imagem:', error);
         await sock.sendMessage(sender, { react: { text: '❌', key: msg.key } });
-        await sendJuliaError(sock, sender, msg, error);
+        await sendGiratinaError(sock, sender, msg, error);
     }
 
     return true;

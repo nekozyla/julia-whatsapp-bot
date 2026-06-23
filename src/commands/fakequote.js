@@ -1,4 +1,4 @@
-const { sendJuliaError } = require('../utils/utils');
+const { sendGiratinaError } = require('../utils/utils');
 const contactManager = require('../managers/contactManager');
 const { generateImage } = require('../helpers/imageGenerator');
 const { fakeQuoteTemplate } = require('../helpers/htmlTemplates');
@@ -99,7 +99,7 @@ async function handleFakeQuote(sock, msg, msgDetails) {
             username: displayName,
             text: quoteText,
             timestamp
-        }, { width: 800, height: 400 }); 
+        }, { width: 800, height: 800 }); 
 
         
         await sock.sendMessage(sender, {
@@ -112,7 +112,7 @@ async function handleFakeQuote(sock, msg, msgDetails) {
 
     } catch (error) {
         console.error('[FakeQuote] Error:', error);
-        await sendJuliaError(sock, sender, msg, error);
+        await sendGiratinaError(sock, sender, msg, error);
     }
 
     return true;
@@ -124,7 +124,7 @@ module.exports = handleFakeQuote;
 module.exports.commandData = {
     name: "fakequote",
     description: "Cria uma citação falsa.",
-    category: "diversao",
+    category: "midia",
     usage: "/fakequote",
     aliases: ["/citacao","/quote","/fake"]
 };

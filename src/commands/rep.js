@@ -6,7 +6,6 @@ async function rep(sock, msg, msgDetails) {
 
     let targetJid = mentionedJids[0];
 
-    
     if (!targetJid) {
         const quotedMsg = msg.message?.extendedTextMessage?.contextInfo;
         if (quotedMsg && quotedMsg.participant) {
@@ -15,7 +14,7 @@ async function rep(sock, msg, msgDetails) {
     }
 
     if (!targetJid) {
-        await sock.sendMessage(sender, { text: `❌ Mencione alguém ou responda uma mensagem para dar reputação.\nEx: ${prefix}${commandName} @usuario` }, { quoted: msg });
+        await sock.sendMessage(sender, { text: `┏━━❪ 𝗥𝗘𝗣 ❫━━\n┃\n┃ ➢ 𝗨𝘀𝗼 › Mencione ou responda alguém\n┃ ➢ 𝗘𝘅 › ${prefix}${commandName} @usuario\n┃\n┗━━━━━━━━━━━━━━` }, { quoted: msg });
         return;
     }
 
@@ -23,17 +22,17 @@ async function rep(sock, msg, msgDetails) {
         const result = await profileManager.giveRep(commandSenderJid, targetJid);
 
         if (result.success) {
-            await sock.sendMessage(sender, { text: `✅ Você deu +1 de reputação para @${targetJid.split('@')[0]}!\nAgora ele(a) tem *${result.newRep}* de Rep.` }, { quoted: msg });
+            await sock.sendMessage(sender, { text: `┏━━❪ 𝗥𝗘𝗣 ❫━━\n┃\n┃ ➢ 𝗦𝗧𝗔𝗧𝗨𝗦 › +1 Reputação\n┃ ➢ 𝗨𝘀𝗲𝗿 › @${targetJid.split('@')[0]}\n┃ ➢ 𝗧𝗼𝘁𝗮𝗹 › ${result.newRep} Rep\n┃\n┗━━━━━━━━━━━━━━`, mentions: [targetJid] }, { quoted: msg });
         } else {
             if (result.reason === 'self_rep') {
-                await sock.sendMessage(sender, { text: `❌ Você não pode dar reputação para si mesmo.` }, { quoted: msg });
+                await sock.sendMessage(sender, { text: `┏━━❪ 𝗪𝗔𝗥𝗡 ❫━━\n┃\n┃ ➢ 𝗘𝗥𝗥𝗢 › Não pode dar rep a si mesmo\n┃\n┗━━━━━━━━━━━━━━` }, { quoted: msg });
             } else if (result.reason === 'cooldown') {
-                await sock.sendMessage(sender, { text: `⏳ Você já deu reputação hoje! Tente novamente em *${result.time}*.` }, { quoted: msg });
+                await sock.sendMessage(sender, { text: `┏━━❪ 𝗪𝗔𝗥𝗡 ❫━━\n┃\n┃ ➢ 𝗘𝗥𝗥𝗢 › Cooldown ativo\n┃ ➢ 𝗧𝗲𝗺𝗽𝗼 › ${result.time}\n┃\n┗━━━━━━━━━━━━━━` }, { quoted: msg });
             }
         }
     } catch (e) {
         console.error('[REP] Error giving rep:', e);
-        await sock.sendMessage(sender, { text: `❌ Erro ao dar reputação.` }, { quoted: msg });
+        await sock.sendMessage(sender, { text: `┏━━❪ 𝗪𝗔𝗥𝗡 ❫━━\n┃\n┃ ➢ 𝗘𝗥𝗥𝗢 › Falha ao dar reputação\n┃\n┗━━━━━━━━━━━━━━` }, { quoted: msg });
     }
 }
 
@@ -42,8 +41,8 @@ module.exports = rep;
 
 module.exports.commandData = {
     name: "rep",
-    description: "Sem descrição disponível.",
+    description: "Dá reputação a alguém.",
     category: "diversao",
-    usage: "/rep",
+    usage: "/rep @usuario",
     aliases: ["/rep", "/reputacao", "/moral"]
 };

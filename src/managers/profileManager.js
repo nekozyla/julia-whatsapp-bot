@@ -1,13 +1,16 @@
 const fs = require('fs').promises;
+const fsSync = require('fs');
 const path = require('path');
+const axios = require('axios');
+const AdmZip = require('adm-zip');
 
 const settingsPath = path.join(__dirname, '..', '..', 'data', 'profile_settings.json');
 let settingsCache = {};
 
-async function loadSettings() {
+function loadSettings() {
     try {
-        await fs.mkdir(path.dirname(settingsPath), { recursive: true });
-        const data = await fs.readFile(settingsPath, 'utf8');
+        fsSync.mkdirSync(path.dirname(settingsPath), { recursive: true });
+        const data = fsSync.readFileSync(settingsPath, 'utf8');
         settingsCache = JSON.parse(data);
     } catch (e) {
         settingsCache = {};
@@ -41,7 +44,121 @@ function normalizeJid(jid) {
     return jid.split(':')[0];
 }
 
+// Helper to save base64 image
+async function saveBase64Image(base64Data, filename) {
+    const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+    if (!matches || matches.length !== 3) return null;
+
+    const buffer = Buffer.from(matches[2], 'base64');
+    const filePath = path.join(backgroundsDir, filename);
+    await fs.writeFile(filePath, buffer);
+    return filePath;
+}
+
 module.exports = {
+    // ... Existing exports ...
+
+    // Downloads and applies a community theme
+    applyCommunityTheme: async (jid, themeName) => {
+        const key = normalizeJid(jid);
+        try {
+            // 1. Fetch
+            // 1. Fetch available themes to find case-insensitive match
+            const listUrl = `https://nekozyla.com.br/api/themes`;
+            const listResponse = await axios.get(listUrl);
+            const themesList = listResponse.data;
+
+            const matchedTheme = themesList.find(t => t.name.toLowerCase() === themeName.toLowerCase());
+
+            if (!matchedTheme) {
+                return { success: false, message: 'Tema não encontrado na comunidade.' };
+            }
+
+            // 1. Fetch the actual file
+            const url = matchedTheme.url;
+            const response = await axios.get(url, { responseType: 'arraybuffer' });
+
+            // 2. Unzip
+            const zip = new AdmZip(response.data);
+            const zipEntries = zip.getEntries();
+
+            let htmlEntry = null;
+            let backgroundEntry = null;
+            const assetsMap = {};
+
+            // 3. Scan entries
+            for (const entry of zipEntries) {
+                if (entry.isDirectory) continue;
+                const entryName = entry.entryName;
+                const lowerName = entryName.toLowerCase();
+
+                if (lowerName === 'theme.html') {
+                    htmlEntry = entry;
+                    continue;
+                }
+
+                if (lowerName.startsWith('assets/')) {
+                    const ext = path.extname(lowerName).toLowerCase();
+                    if (['.png', '.jpg', '.jpeg', '.gif', '.webp'].includes(ext)) {
+                        const mime = ext === '.png' ? 'image/png' :
+                            ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' :
+                                ext === '.gif' ? 'image/gif' : 'image/webp';
+                        assetsMap[entryName] = `data:${mime};base64,${entry.getData().toString('base64')}`;
+                    }
+                    continue;
+                }
+
+                if (!lowerName.includes('/') && ['.png', '.jpg', '.jpeg', '.webp'].includes(path.extname(lowerName).toLowerCase())) {
+                    backgroundEntry = entry;
+                }
+            }
+
+            if (!htmlEntry) {
+                return { success: false, message: 'Tema inválido (sem theme.html)' };
+            }
+
+            // 4. Hydrate HTML
+            let htmlContent = zip.readAsText(htmlEntry);
+            let hydratedCount = 0;
+
+            for (const [assetPath, base64Data] of Object.entries(assetsMap)) {
+                // Escape filenames for regex
+                const regex = new RegExp(assetPath.replace(/\./g, '\\.'), 'g');
+                if (htmlContent.match(regex)) {
+                    htmlContent = htmlContent.replace(regex, base64Data);
+                    hydratedCount++;
+                }
+            }
+
+            // 5. Apply Settings
+            if (!settingsCache[key]) settingsCache[key] = {};
+
+            settingsCache[key].customHtml = htmlContent;
+            settingsCache[key].theme = 'builder';
+
+            // Reset background by default to avoid persistence from previous themes
+            settingsCache[key].customHtmlBackground = null;
+            settingsCache[key].customHtmlBg = null; // Clear legacy property
+
+            if (backgroundEntry) {
+                // Save custom background if present
+                const bgExt = path.extname(backgroundEntry.entryName);
+                const bgFilename = `bg_${Date.now()}_${key}${bgExt}`;
+                const bgPath = path.join(backgroundsDir, bgFilename);
+                await fs.writeFile(bgPath, backgroundEntry.getData());
+
+                settingsCache[key].customHtmlBackground = bgPath;
+            }
+
+            await saveSettings();
+
+            return { success: true, message: `Tema "${matchedTheme.name}" aplicado! (${hydratedCount} assets carregados)` };
+
+        } catch (error) {
+            console.error('Erro ao baixar tema:', error);
+            return { success: false, message: `Erro ao baixar tema: ${error.message}` };
+        }
+    },
     getTheme: (jid) => {
         const key = normalizeJid(jid);
         return settingsCache[key]?.theme || 'default';
@@ -170,17 +287,28 @@ module.exports = {
         const key = normalizeJid(jid);
         return settingsCache[key]?.customHtml || null;
     },
+    setAnimatedProfile: async (jid, isAnimated) => {
+        const key = normalizeJid(jid);
+        if (!settingsCache[key]) settingsCache[key] = {};
+        settingsCache[key].animatedProfile = !!isAnimated;
+        await saveSettings();
+    },
+    isAnimatedProfile: (jid) => {
+        const key = normalizeJid(jid);
+        return !!settingsCache[key]?.animatedProfile;
+    },
     setCustomHtmlBackground: async (jid, imageBuffer) => {
         const key = normalizeJid(jid);
         if (!settingsCache[key]) settingsCache[key] = {};
 
         try {
             await ensureBackgroundsDir();
-            const filename = `${key}_html_bg.jpg`;
+            const filename = `bg_${Date.now()}_${key}_html_bg.jpg`;
             const filePath = path.join(backgroundsDir, filename);
 
             await fs.writeFile(filePath, imageBuffer);
-            settingsCache[key].customHtmlBg = filePath;
+            settingsCache[key].customHtmlBackground = filePath;
+            settingsCache[key].customHtmlBg = null; // Clear legacy property
             await saveSettings();
             return true;
         } catch (e) {
@@ -190,7 +318,8 @@ module.exports = {
     },
     getCustomHtmlBackground: (jid) => {
         const key = normalizeJid(jid);
-        return settingsCache[key]?.customHtmlBg || null;
+        // Prefer new long property, fallback to old short one for migration
+        return settingsCache[key]?.customHtmlBackground || settingsCache[key]?.customHtmlBg || null;
     },
 
     setBio: async (jid, text) => {
@@ -346,5 +475,88 @@ module.exports = {
             .slice(0, limit);
 
         return donors;
+    },
+    getSocials: (jid) => {
+        const key = normalizeJid(jid);
+        return settingsCache[key]?.socials || {};
+    },
+    setSocial: async (jid, platform, user) => {
+        const key = normalizeJid(jid);
+        if (!settingsCache[key]) settingsCache[key] = {};
+        if (!settingsCache[key].socials) settingsCache[key].socials = {};
+
+        settingsCache[key].socials[platform.toLowerCase()] = user;
+        await saveSettings();
+        return true;
+    },
+    removeSocial: async (jid, platform) => {
+        const key = normalizeJid(jid);
+        if (!settingsCache[key] || !settingsCache[key].socials) return false;
+
+        delete settingsCache[key].socials[platform.toLowerCase()];
+        await saveSettings();
+        return true;
+    },
+    getTopReputation: (limit = 10) => {
+        const top = Object.entries(settingsCache)
+            .map(([jid, data]) => ({
+                id: jid.includes('@') ? jid : `${jid}@s.whatsapp.net`,
+                reputation: data.reputation || 0
+            }))
+            .filter(u => u.reputation > 0)
+            .sort((a, b) => b.reputation - a.reputation)
+            .slice(0, limit);
+        return top;
+    },
+
+    // --- Pronomes ---
+    VALID_PRONOUNS: {
+        'ela/dela':  { display: 'ela/dela',  color: '#FF69B4', emoji: '🏳️‍⚧️' },
+        'ele/dele':  { display: 'ele/dele',  color: '#60A5FA', emoji: '🏳️‍⚧️' },
+        'elu/delu':  { display: 'elu/delu',  color: '#A78BFA', emoji: '🏳️‍🌈' },
+        'elx/delx':  { display: 'elx/delx',  color: '#34D399', emoji: '🏳️‍🌈' },
+        'ael/del':   { display: 'ael/del',   color: '#FBBF24', emoji: '🏳️‍🌈' },
+        'ile/dile':  { display: 'ile/dile',  color: '#F97316', emoji: '🏳️‍🌈' },
+        'qualquer':  { display: 'qualquer pronome', color: '#F472B6', emoji: '🌈' },
+        'sem':       { display: 'sem pronome', color: '#9CA3AF', emoji: '🤍' },
+    },
+    setPronouns: async (jid, pronounKey) => {
+        const key = normalizeJid(jid);
+        if (!settingsCache[key]) settingsCache[key] = {};
+        settingsCache[key].pronouns = pronounKey.toLowerCase();
+        await saveSettings();
+    },
+    getPronouns: (jid) => {
+        const key = normalizeJid(jid);
+        return settingsCache[key]?.pronouns || null;
+    },
+
+    // --- Identidade de Gênero ---
+    VALID_GENDERS: {
+        'mulher-cis':    { display: 'Mulher Cis',     emoji: '♀️' },
+        'homem-cis':     { display: 'Homem Cis',      emoji: '♂️' },
+        'mulher-trans':  { display: 'Mulher Trans',    emoji: '⚧️' },
+        'homem-trans':   { display: 'Homem Trans',     emoji: '⚧️' },
+        'nao-binario':   { display: 'Não-Binárie',    emoji: '⚧️' },
+        'genderfluid':   { display: 'Genderfluid',    emoji: '🌊' },
+        'agender':       { display: 'Agênero',        emoji: '⚪' },
+        'bigender':      { display: 'Bigênero',       emoji: '💜' },
+        'demimenina':    { display: 'Demimenina',     emoji: '🌸' },
+        'demimenino':    { display: 'Demimenino',     emoji: '🌿' },
+        'pangender':     { display: 'Pangênero',      emoji: '🌈' },
+        'neutrois':      { display: 'Neutrois',       emoji: '💚' },
+        'two-spirit':    { display: 'Two-Spirit',     emoji: '🪶' },
+        'outro':         { display: 'Outro',          emoji: '✨' },
+        'questionando':  { display: 'Questionando',   emoji: '❓' },
+    },
+    setGender: async (jid, genderKey) => {
+        const key = normalizeJid(jid);
+        if (!settingsCache[key]) settingsCache[key] = {};
+        settingsCache[key].gender = genderKey.toLowerCase();
+        await saveSettings();
+    },
+    getGender: (jid) => {
+        const key = normalizeJid(jid);
+        return settingsCache[key]?.gender || null;
     }
 };

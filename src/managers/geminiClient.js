@@ -1,7 +1,7 @@
-
-
 const { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } = require("@google/generative-ai");
-const { GEMINI_API_KEY, GEMINI_MODELS } = require('../../config/config.js');
+const { GEMINI_API_KEY, GEMINI_MODELS } = require('../../config.js');
+const { getSystemPrompt } = require('./systemPrompt.js');
+const systemStateManager = require('./systemStateManager.js');
 
 
 if (!GEMINI_API_KEY) {
@@ -29,13 +29,15 @@ const genAI_instance = new GoogleGenerativeAI(GEMINI_API_KEY);
 let currentTextModelIndex = 0;
 let textModel_instance;
 
-function initializeTextModel() {
-    const modelName = GEMINI_MODELS[currentTextModelIndex];
-    
-
-    textModel_instance = genAI_instance.getGenerativeModel({
-        model: modelName,
-        safetySettings
+function getGenerativeTextModel() {
+    const activeModel = systemStateManager.getCustomModel('gemini') || GEMINI_MODELS[currentTextModelIndex];
+    return genAI_instance.getGenerativeModel({
+        model: activeModel,
+        safetySettings,
+        systemInstruction: {
+            role: "system",
+            parts: [{ text: getSystemPrompt() }]
+        }
     });
 }
 
@@ -43,7 +45,6 @@ function switchToNextTextModel() {
     if (currentTextModelIndex < GEMINI_MODELS.length - 1) {
         currentTextModelIndex++;
         console.warn(`[Gemini Text] Limite de API atingido. Trocando para o próximo modelo: ${GEMINI_MODELS[currentTextModelIndex]}`);
-        initializeTextModel();
         return true;
     } else {
         console.error(`[Gemini Text] Todos os modelos de fallback atingiram o limite. Não é possível trocar mais.`);
@@ -52,7 +53,6 @@ function switchToNextTextModel() {
 }
 
 
-initializeTextModel();
 
 
 
@@ -60,32 +60,82 @@ initializeTextModel();
 const IMAGE_MODEL_NAME = "gemini-2.5-flash-image-preview";
 let imageModel_instance;
 
-try {
-    
-    imageModel_instance = genAI_instance.getGenerativeModel({
-        model: IMAGE_MODEL_NAME,
-        safetySettings
+function getGenerativeImageModel() {
+    const activeVisionModel = systemStateManager.getCustomModel('gemini') || IMAGE_MODEL_NAME;
+    if (!activeVisionModel) return null;
+    return genAI_instance.getGenerativeModel({
+        model: activeVisionModel,
+        safetySettings,
+        systemInstruction: {
+            role: "system",
+            parts: [{ text: getSystemPrompt() }]
+        }
     });
-} catch (e) {
-    console.error(`[Gemini Image] Falha ao inicializar o modelo de imagem ${IMAGE_MODEL_NAME}. O comando !mudar pode não funcionar. Erro: ${e.message}`);
-    imageModel_instance = null; 
 }
 
 
 
 
 
+async function chatCompletion(messages) {
+    const model = getGenerativeTextModel();
+    // Converte o formato OpenAI [{role, content}] para o formato Gemini [{role, parts: [{text}]}]
+    const formattedHistory = messages
+        .filter(msg => msg.role !== 'system') // system prompt já foi passado no systemInstruction
+        .map(msg => ({
+            role: msg.role === 'assistant' ? 'model' : 'user',
+            parts: [{ text: msg.content }]
+        }));
+
+    // O último da lista tem que ser o user message atual, porque chatCompletion não possui .generateContent direto no histórico 
+    // Wait, generateContent({contents: [...]}) funciona passando toda a conversa
+    try {
+        const result = await model.generateContent({ contents: formattedHistory });
+        return result.response.text().trim();
+    } catch (e) {
+        if (e.status === 429) {
+            console.warn('[Gemini] Rate limit hit on Model.');
+            if (switchToNextTextModel()) {
+                return await chatCompletion(messages); // Tenta de novo no novo modelo
+            }
+            throw new Error('Estou sobrecarregada agora, tenta de novo daqui a pouco! 😵');
+        }
+        throw new Error(`Erro na API Gemini: ${e.message}`);
+    }
+}
+
+async function visionCompletion(imageBase64, mimeType, userText, userName = null) {
+    const imageModel = getGenerativeImageModel();
+    if (!imageModel) throw new Error('Modelo de visão do Gemini não suportado ou falhou.');
+
+    const promptText = userName ? `[${userName}]: ${userText || 'O que tem nessa imagem?'}` : (userText || 'O que tem nessa imagem?');
+    
+    const inlineData = {
+        data: imageBase64,
+        mimeType: mimeType
+    };
+
+    try {
+        const result = await imageModel.generateContent([
+            promptText,
+            { inlineData }
+        ]);
+        return result.response.text().trim();
+    } catch (e) {
+        if (e.status === 429) {
+            throw new Error('Estou sobrecarregada agora, tenta de novo daqui a pouco! 😵');
+        }
+        throw new Error(`Erro na API Gemini Vision: ${e.message}`);
+    }
+}
+
 const modelApi = {
-    
-    get textModel() {
-        return textModel_instance;
-    },
-
-    
-    imageModel: imageModel_instance,
-
-    
-    switchToNextModel: switchToNextTextModel 
+    get textModel() { return getGenerativeTextModel(); },
+    get imageModel() { return getGenerativeImageModel(); },
+    switchToNextModel: switchToNextTextModel,
+    chatCompletion,
+    visionCompletion,
+    API_KEY: GEMINI_API_KEY
 };
 
 module.exports = modelApi;

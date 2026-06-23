@@ -1,5 +1,5 @@
 
-const { sendJuliaError } = require('../utils/utils.js');
+const { sendGiratinaError } = require('../utils/utils.js');
 const fs = require('fs').promises;
 const path = require('path');
 
@@ -74,7 +74,7 @@ async function handleCabumCommand(sock, msg, msgDetails) {
 
     } catch (error) {
         console.error("[Cabum] Erro fatal:", error);
-        await sendJuliaError(sock, chatJid, msg, error);
+        await sendGiratinaError(sock, chatJid, msg, error);
     }
 
     return true;

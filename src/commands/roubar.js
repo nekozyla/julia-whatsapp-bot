@@ -36,6 +36,12 @@ module.exports = async (sock, msg, msgDetails) => {
 
     
     const quotedType = getContentType(quotedMsgInfo);
+    
+    // Recusa silenciosamente figurinhas Lottie
+    if (quotedType === 'lottieStickerMessage' || (quotedType === 'stickerMessage' && (quotedMsgInfo.stickerMessage?.isLottie || quotedMsgInfo.stickerMessage?.mimetype === 'application/was'))) {
+        return;
+    }
+
     if (quotedType !== 'stickerMessage') {
         await sock.sendMessage(sender, { text: '⚠️ Isso não é uma figurinha! Responda a uma figurinha.' }, { quoted: msg });
         return;
@@ -46,8 +52,8 @@ module.exports = async (sock, msg, msgDetails) => {
 
         
         const currentPreset = userPresetManager.getPreset(sender, commandSenderJid);
-        const pack = currentPreset.pack || 'Criado com Jul.ia';
-        const author = currentPreset.author || 'by @nekozylajs';
+        const pack = currentPreset.pack !== undefined ? (currentPreset.pack ?? '') : 'Criado com Jul.ia';
+        const author = currentPreset.author !== undefined ? (currentPreset.author ?? '') : 'by @nekozylajs';
 
         
         const stream = await downloadContentFromMessage(quotedMsgInfo.stickerMessage, 'sticker');

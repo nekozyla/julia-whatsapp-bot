@@ -1,11 +1,13 @@
 async function dna(sock, msg, msgDetails) {
-    const { sender: chatJid, commandSenderJid } = msgDetails;
+    const { sender: chatJid, commandSenderJid, prefix, commandName } = msgDetails;
     const mentionedJids = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
 
     let parent, child;
 
     if (mentionedJids.length === 0) {
-        return sock.sendMessage(chatJid, { text: '🧬 Mencione alguém para fazer o teste de DNA!\nEx: `/dna @usuario` (você é o pai/mãe)\nOu: `/dna @pai @filho`' }, { quoted: msg });
+        return sock.sendMessage(chatJid, {
+            text: `┏━━❪ 🧬 𝗗𝗡𝗔 ❫━━\n┃\n┃ ➢ 𝗨𝘀𝗼 › Mencione alguém\n┃ ➢ 𝗘𝘅 › ${prefix}${commandName} @user\n┃ ➢ 𝗘𝘅𝟮 › ${prefix}${commandName} @pai @filho\n┃\n┗━━━━━━━━━━━━━━`
+        }, { quoted: msg });
     } else if (mentionedJids.length === 1) {
         parent = commandSenderJid;
         child = mentionedJids[0];
@@ -14,10 +16,6 @@ async function dna(sock, msg, msgDetails) {
         child = mentionedJids[1];
     }
 
-    
-
-    
-    
     const botJid = msgDetails.botJid || sock.user?.id?.replace(/:.*@/, '@') || '';
 
     const parentClean = parent.replace(/:.*@/, '@');
@@ -30,17 +28,14 @@ async function dna(sock, msg, msgDetails) {
     if (parentClean === botClean || childClean === botClean) {
         if (msgDetails.isSuperAdmin) {
             percentage = 100;
-            extraMessage = "\n👑 *Nota:* Claro que é 100%! Você é minha criadora, afinal. ❤️";
+            extraMessage = `\n┃ ➢ 𝗡𝗼𝘁𝗮 › Claro que é 100%! Minha criadora ❤️`;
         } else {
             percentage = 0;
-            extraMessage = "\n🤖 *Nota:* Eu sou um robô! Meu DNA é feito de 0s e 1s. Não tenho filhos biológicos (ainda).";
+            extraMessage = `\n┃ ➢ 𝗡𝗼𝘁𝗮 › Meu DNA é feito de 0s e 1s`;
         }
     }
 
-    const text = `🧬 *TESTE DE DNA* 🧬\n\n` +
-        `🔬 *Pai/Mãe:* @${parent.split('@')[0]}\n` +
-        `👶 *Filho(a):* @${child.split('@')[0]}\n\n` +
-        `📊 *Resultado:* ${percentage}% de chance de ser filho(a)!${extraMessage}`;
+    const text = `┏━━❪ 🧬 𝗗𝗡𝗔 ❫━━\n┃\n┃ ➢ 𝗣𝗮𝗶/𝗠𝗮𝗲 › @${parent.split('@')[0]}\n┃ ➢ 𝗙𝗶𝗹𝗵𝗼(𝗮) › @${child.split('@')[0]}\n┃\n┣━━❪ 𝗥𝗘𝗦𝗨𝗟𝗧 ❫━━\n┃\n┃ ➢ 𝗖𝗵𝗮𝗻𝗰𝗲 › *${percentage}%*${extraMessage}\n┃\n┗━━━━━━━━━━━━━━`;
 
     await sock.sendMessage(chatJid, { text, mentions: [parent, child] }, { quoted: msg });
 }
@@ -52,6 +47,6 @@ module.exports.commandData = {
     name: "dna",
     description: "Teste de paternidade.",
     category: "diversao",
-    usage: "/dna",
+    usage: "/dna @usuario",
     aliases: []
 };

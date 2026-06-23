@@ -1,14 +1,16 @@
 
 const authManager = require('../managers/authManager.js');
-const { sendJuliaError } = require('../utils/utils.js');
+const { sendGiratinaError } = require('../utils/utils.js');
 const fs = require('fs').promises;
 const path = require('path');
 const groupMetadataManager = require('../managers/groupMetadataManager.js');
+const config = require('../../config.js');
 
 
 const { downloadMediaMessage } = require('@whiskeysockets/baileys');
 
 const BOT_JID_CACHE_PATH = path.join(__dirname, '..', '..', 'data', 'bot_jid_cache.json');
+const BOT_NAME = config.BOT_NAME || 'Bot';
 
 
 async function getBotJid(groupId) {
@@ -35,7 +37,7 @@ async function handleMentionAllCommand(sock, msg, msgDetails) {
         const botJid = await getBotJid(sender); 
 
         if (!botJid) {
-            await sock.sendMessage(sender, { text: "Não consegui verificar minha identidade neste grupo. Por favor, execute o comando `/sync @Julia` primeiro." }, { quoted: msg });
+            await sock.sendMessage(sender, { text: `Não consegui verificar minha identidade neste grupo. Por favor, execute o comando \`/sync @${BOT_NAME}\` primeiro.` }, { quoted: msg });
             return;
         }
 
@@ -113,17 +115,31 @@ async function handleMentionAllCommand(sock, msg, msgDetails) {
             messagePayload.text = finalText;
         }
 
-        
-        await sock.sendMessage(sender, messagePayload);
+        // --- Delay programável: --delay=5s ou --delay=2m ---
+        let delayMs = 0;
+        const delayMatch = commandText.match(/--delay=(\d+)(s|m)?/i);
+        if (delayMatch) {
+            const amount = parseInt(delayMatch[1]);
+            const unit = (delayMatch[2] || 's').toLowerCase();
+            delayMs = unit === 'm' ? amount * 60000 : amount * 1000;
+            delayMs = Math.min(delayMs, 10 * 60 * 1000); // máximo 10 minutos
+        }
 
-        
+        if (delayMs > 0) {
+            const seconds = Math.round(delayMs / 1000);
+            const timeStr = seconds >= 60 ? `${Math.floor(seconds / 60)}min${seconds % 60 > 0 ? ` ${seconds % 60}s` : ''}` : `${seconds}s`;
+            await sock.sendMessage(sender, { text: `⏳ Marcação agendada para daqui a *${timeStr}*...` }, { quoted: msg });
+            await new Promise(r => setTimeout(r, delayMs));
+        }
+
+        await sock.sendMessage(sender, messagePayload);
 
         if (botParticipant?.admin) {
             await sock.sendMessage(sender, { delete: msg.key });
         }
 
     } catch (error) {
-        await sendJuliaError(sock, sender, msg, error);
+        await sendGiratinaError(sock, sender, msg, error);
     }
 }
 

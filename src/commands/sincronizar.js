@@ -1,7 +1,10 @@
 
 const syncManager = require('../managers/syncManager.js');
-const { sendJuliaError } = require('../utils/utils.js');
+const { sendGiratinaError } = require('../utils/utils.js');
 const groupMetadataManager = require('../managers/groupMetadataManager.js');
+const config = require('../../config.js');
+
+const BOT_NAME = config.BOT_NAME || 'Bot';
 
 module.exports = async (sock, msg, msgDetails) => {
     const { sender, commandText, commandSenderJid, isGroup, isSuperAdmin } = msgDetails;
@@ -51,7 +54,7 @@ module.exports = async (sock, msg, msgDetails) => {
             try {
                 const targetMeta = await groupMetadataManager.getGroupMetadata(sock, target);
                 if (!targetMeta) {
-                    await sock.sendMessage(sender, { text: 'Não consegui acessar o grupo de destino. Verifique se o JID está correto e se a Julia está presente no grupo.' }, { quoted: msg });
+                    await sock.sendMessage(sender, { text: `Não consegui acessar o grupo de destino. Verifique se o JID está correto e se a ${BOT_NAME} está presente no grupo.` }, { quoted: msg });
                     return;
                 }
             } catch (e) {
@@ -89,7 +92,7 @@ module.exports = async (sock, msg, msgDetails) => {
 
     } catch (error) {
         console.error('[Sincronizar] Erro:', error);
-        await sendJuliaError(sock, sender, msg, error);
+        await sendGiratinaError(sock, sender, msg, error);
     }
 };
 

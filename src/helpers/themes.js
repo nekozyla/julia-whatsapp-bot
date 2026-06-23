@@ -19,6 +19,16 @@ const themes = {
         shadow: '0 8px 32px 0 rgba(0, 0, 0, 0.1)',
         fontFamily: "'Inter', sans-serif"
     },
+    'liquid': {
+        name: 'Liquid Glass',
+        cardBg: 'rgba(255, 255, 255, 0.25)',
+        textColor: '#ffffff',
+        subTextColor: 'rgba(255, 255, 255, 0.9)',
+        accentColor: 'linear-gradient(135deg, #8EC5FC, #E0C3FC)',
+        borderColor: 'rgba(255, 255, 255, 0.5)',
+        shadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
+        fontFamily: "'Poppins', sans-serif"
+    },
     'neon': {
         name: 'Neon Green',
         cardBg: 'rgba(0, 0, 0, 0.7)',
@@ -85,7 +95,7 @@ const themes = {
         cardBg: '#2b2b2b',
         textColor: '#fff',
         subTextColor: '#ccc',
-        accentColor: 'linear-gradient(180deg, #51a7f9 0%, #007bf7 100%)', 
+        accentColor: 'linear-gradient(180deg, #51a7f9 0%, #007bf7 100%)',
         borderColor: '#000',
         shadow: '0 10px 40px rgba(0,0,0,0.6)',
         fontFamily: "'Inter', sans-serif"

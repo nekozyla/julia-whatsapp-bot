@@ -1,9 +1,9 @@
 
 const { downloadMediaMessage } = require('@whiskeysockets/baileys');
-const { sendJuliaError } = require('../utils/utils');
-const config = require('../../config/config');
-const axios = require('axios');
-const FormData = require('form-data');
+const { sendGiratinaError, getRandomToken } = require('../utils/utils');
+const fs = require('fs');
+const path = require('path');
+const { exec } = require('child_process');
 
 async function handleRemoveBgCommand(sock, msg, msgDetails) {
     const { sender, commandText } = msgDetails;
@@ -15,20 +15,15 @@ async function handleRemoveBgCommand(sock, msg, msgDetails) {
         return;
     }
 
-    if (!config.REMOVE_BG_KEY) {
-        await sock.sendMessage(sender, {
-            text: "⚠️ A chave da API do remove.bg não está configurada.\n\nPeça para o dono do bot adicionar `REMOVE_BG_KEY` no arquivo `.env`."
-        }, { quoted: msg });
-        return;
-    }
+    const inputPath = path.join(__dirname, '../../temp', `${getRandomToken()}.jpg`);
+    const outputPath = path.join(__dirname, '../../temp', `${getRandomToken()}.png`);
+    const scriptPath = path.join(__dirname, '../scripts/remove_bg.py');
 
     try {
         await sock.sendMessage(sender, { react: { text: '✂️', key: msg.key } });
 
-        
         const messageToDownload = quotedMsg ? { message: quotedMsg } : msg;
 
-        
         const buffer = await downloadMediaMessage(
             messageToDownload,
             'buffer',
@@ -36,55 +31,52 @@ async function handleRemoveBgCommand(sock, msg, msgDetails) {
             { logger: undefined, reuploadRequest: sock.updateMediaMessage }
         );
 
-        
-        const formData = new FormData();
-        formData.append('size', 'auto');
-        formData.append('image_file', buffer, 'image.jpg');
+        fs.writeFileSync(inputPath, buffer);
 
-        
-        const response = await axios.post('https://api.remove.bg/v1.0/removebg', formData, {
-            headers: {
-                ...formData.getHeaders(),
-                'X-Api-Key': config.REMOVE_BG_KEY,
-            },
-            responseType: 'arraybuffer',
-            encoding: null
+        // Execute Python script
+        await new Promise((resolve, reject) => {
+            exec(`python "${scriptPath}" "${inputPath}" "${outputPath}"`, (error, stdout, stderr) => {
+                if (error) {
+                    console.error(`exec error: ${error}`);
+                    reject(error);
+                    return;
+                }
+                if (stderr) {
+                    console.error(`stderr: ${stderr}`);
+                }
+                resolve(stdout);
+            });
         });
 
-        if (response.status !== 200) {
-            throw new Error(`Erro na API remove.bg: ${response.statusText}`);
+        if (fs.existsSync(outputPath)) {
+            const outputBuffer = fs.readFileSync(outputPath);
+            await sock.sendMessage(sender, {
+                image: outputBuffer,
+                caption: "✨ Fundo removido com sucesso!"
+            }, { quoted: msg });
+
+            await sock.sendMessage(sender, { react: { text: '✅', key: msg.key } });
+        } else {
+            throw new Error("Output file not found.");
         }
-
-        
-        await sock.sendMessage(sender, {
-            image: response.data,
-            caption: "✨ Fundo removido com sucesso!"
-        }, { quoted: msg });
-
-        await sock.sendMessage(sender, { react: { text: '✅', key: msg.key } });
 
     } catch (error) {
-        console.error("[RemoveBG] Erro:", error?.response?.data ? error.response.data.toString() : error.message);
-
-        let errorMessage = "Ocorreu um erro ao remover o fundo.";
-        if (error?.response?.status === 402) {
-            errorMessage = "⚠️ Os créditos da API do remove.bg acabaram.";
-        } else if (error?.response?.status === 403) {
-            errorMessage = "⚠️ Chave de API inválida.";
-        }
-
-        await sock.sendMessage(sender, { text: errorMessage }, { quoted: msg });
+        console.error("[RemoveBG] Erro:", error);
+        await sock.sendMessage(sender, { text: "⚠️ Ocorreu um erro ao remover o fundo." }, { quoted: msg });
         await sock.sendMessage(sender, { react: { text: '❌', key: msg.key } });
+    } finally {
+        // Cleanup
+        if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
+        if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
     }
 }
 
 module.exports = handleRemoveBgCommand;
 
-
 module.exports.commandData = {
     name: "removebg",
-    description: "Remove fundo da imagem.",
+    description: "Remove fundo da imagem (Local).",
     category: "midia",
     usage: "/removebg",
-    aliases: ["/bg","/nobg"]
+    aliases: ["/bg", "/nobg", "/rembg"]
 };
